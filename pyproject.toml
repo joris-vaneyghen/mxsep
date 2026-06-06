@@ -55,6 +55,7 @@ Repository = "https://github.com/joris-vaneyghen/mxsep"
 Documentation = "https://github.com/joris-vaneyghen/mxsep"
 
 [project.scripts]
+musep-config-info = "musep.cli.config_info:run"
 mxsep-dataset-info = "mxsep.cli.dataset_info:run"
 mxsep-model-info = "mxsep.cli.model_info:run"
 mxsep-generate-mixes = "mxsep.cli.generate_mixes:run"
