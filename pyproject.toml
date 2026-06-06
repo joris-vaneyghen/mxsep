@@ -37,8 +37,8 @@ dependencies = [
     "einops",
 ]
 
-[project.optional-dependencies]
-data = ["pandas", "tqdm", "scipy"]
+#[project.optional-dependencies]
+#data = ["pandas", "tqdm", "scipy"]
 #train = [
 #    "wandb",
 #    "tensorboard",
@@ -55,10 +55,10 @@ Repository = "https://github.com/joris-vaneyghen/musep"
 Documentation = "https://github.com/joris-vaneyghen/musep"
 
 [project.scripts]
-musep-dataset-info = "musep.cli.dataset_info:main"
-musep-model-info = "musep.cli.model_info:main"
-musep-generate-mixes = "musep.cli.generate_mixes:main"
-musep-train = "musep.cli.train:main"
+musep-dataset-info = "musep.cli.dataset_info:run"
+musep-model-info = "musep.cli.model_info:run"
+musep-generate-mixes = "musep.cli.generate_mixes:run"
+musep-train = "musep.cli.train:run"
 
 [tool.setuptools.package-data]
 musep = ["configs/*.yaml", "configs/**/*.yaml"]
