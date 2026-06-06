@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Type
 import audiomentations
 from audiomentations.core.transforms_interface import BaseWaveformTransform
 
-import musep.data.augmentations
+import mxsep.data.augmentations
 
 
 class TransformRegistry:
@@ -38,7 +38,7 @@ class TransformRegistry:
         if name in cls._transforms_dict:
             return cls._transforms_dict[name]
 
-        cls_name = getattr(musep.data.augmentations, name, None)
+        cls_name = getattr(mxsep.data.augmentations, name, None)
         if cls_name is None:
             # Fall back to audiomentations
             return getattr(audiomentations, name, None)

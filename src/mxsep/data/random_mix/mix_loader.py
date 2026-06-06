@@ -5,8 +5,8 @@ import numpy as np
 import soundfile as sf
 from audiomentations.core.transforms_interface import BaseWaveformTransform
 
-from musep.data.augmentation import DynamicTransformFactory
-from musep.data.random_mix import Mix, Augmentation
+from mxsep.data.augmentation import DynamicTransformFactory
+from mxsep.data.random_mix import Mix, Augmentation
 
 
 def load_mix(mix_def: Mix, sample_rate: int, segment_length: int, nb_channels: int) -> Tuple[List[Tuple[str, np.ndarray]], np.ndarray]:

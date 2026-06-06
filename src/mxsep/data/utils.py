@@ -8,7 +8,7 @@ from typing import Dict, Optional, Iterator
 
 import numpy as np
 
-from musep.cfg import DatasetConfig
+from mxsep.cfg import DatasetConfig
 
 allowed_audio_extensions = ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aac']
 

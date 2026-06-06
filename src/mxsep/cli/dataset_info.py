@@ -8,9 +8,9 @@ import torchaudio
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
-from musep.cfg import Config
-from musep.models import ISTFTModule
-from musep.training import Trainer
+from mxsep.cfg import Config
+from mxsep.models import ISTFTModule
+from mxsep.training import Trainer
 
 log = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ def run(cfg: Config):
     cfg.training.monitoring.wandb = None
     trainer = Trainer(cfg)
 
-    out_dir = "/home/joris/projects/musep/src/musep/cli/outputs"
+    out_dir = "//src/musep/cli/outputs"
     cnt_train = 0  # segments train
     cnt_validation = 0  # segments validation
     max_writes = 64

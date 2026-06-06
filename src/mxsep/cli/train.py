@@ -4,8 +4,8 @@ import hydra
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
-from musep.cfg import Config
-from musep.training import Trainer
+from mxsep.cfg import Config
+from mxsep.training import Trainer
 
 log = logging.getLogger(__name__)
 

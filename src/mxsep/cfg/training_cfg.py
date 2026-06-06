@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, List, Union, Tuple
 
 import yaml
 
-from musep.utils.serialize import asdict_filter_empty
+from mxsep.utils.serialize import asdict_filter_empty
 
 
 class PredefinedType(Enum):

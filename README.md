@@ -1,4 +1,4 @@
-# Music Source Separation Toolkit (musep)
+# Music Source Separation Toolkit (mxsep)
 
 A flexible, research-oriented toolkit for training music source separation models with PyTorch.
 

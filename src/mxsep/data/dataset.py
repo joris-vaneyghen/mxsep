@@ -6,12 +6,12 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from musep.cfg import DatasetConfig, STFTConfig
-from musep.data.random_mix import Mix, load_mix
+from mxsep.cfg import DatasetConfig, STFTConfig
+from mxsep.data.random_mix import Mix, load_mix
 
 import logging
 
-from musep.models import STFTModule
+from mxsep.models import STFTModule
 
 logger = logging.getLogger(__name__)
 

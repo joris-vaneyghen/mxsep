@@ -6,8 +6,8 @@ from omegaconf import OmegaConf
 from torchinfo import summary
 from torchview import draw_graph
 
-from musep.cfg import Config
-from musep.models import MusicSourceSeparationModel
+from mxsep.cfg import Config
+from mxsep.models import MusicSourceSeparationModel
 
 log = logging.getLogger(__name__)
 
@@ -36,10 +36,8 @@ def run(cfg : Config):
         save_graph=True,
         depth=3,
         filename="model",
-        directory="/home/joris/projects/musep/src/musep/cli/outputs",
+        directory="./outputs",
     )
-
-
 
 if __name__ == '__main__':
     run()

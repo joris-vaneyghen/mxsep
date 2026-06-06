@@ -8,11 +8,11 @@ import torch
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 
-from musep.cfg import Config
-from musep.data.dataset import PredefinedMixDataset
-from musep.models import ISTFTModule, MusicSourceSeparationModel
-from musep.training import Monitor
-from musep.utils.metrics import calculate_sdr
+from mxsep.cfg import Config
+from mxsep.data.dataset import PredefinedMixDataset
+from mxsep.models import ISTFTModule, MusicSourceSeparationModel
+from mxsep.training import Monitor
+from mxsep.utils.metrics import calculate_sdr
 
 
 class Trainer:

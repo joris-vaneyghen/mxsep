@@ -7,11 +7,11 @@ import numpy as np
 import soundfile as sf
 from omegaconf import OmegaConf
 
-from musep.cfg import DatasetConfig, MixingStrategy
-from musep.data.augmentation import DynamicTransformFactory
-from musep.data.random_mix import Segment, Augmentation, Mix
-from musep.data.random_mix.mix_loader import _load_audio_segment
-from musep.data.utils import (
+from mxsep.cfg import DatasetConfig, MixingStrategy
+from mxsep.data.augmentation import DynamicTransformFactory
+from mxsep.data.random_mix import Segment, Augmentation, Mix
+from mxsep.data.random_mix.mix_loader import _load_audio_segment
+from mxsep.data.utils import (
     iter_audio_files,
     iter_audio_files_orphans,
     iter_audio_files_per_song,

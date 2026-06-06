@@ -7,9 +7,9 @@ import hydra
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
-from musep.cfg import Config, DatasetConfig
-from musep.data.random_mix import generate_mix, generate_validation_mix
-from musep.data.random_mix.mix_generator import generate_validation_mix_orphans
+from mxsep.cfg import Config, DatasetConfig
+from mxsep.data.random_mix import generate_mix, generate_validation_mix
+from mxsep.data.random_mix.mix_generator import generate_validation_mix_orphans
 
 log = logging.getLogger(__name__)
 

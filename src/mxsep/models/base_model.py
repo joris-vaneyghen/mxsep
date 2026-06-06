@@ -5,8 +5,8 @@ import torch
 from einops import einops
 from torch import nn, Tensor
 
-from musep.cfg import ModelConfig, EncoderConfig, DecoderConfig, BottleneckConfig
-from musep.models import STFTModule, ISTFTModule
+from mxsep.cfg import ModelConfig, EncoderConfig, DecoderConfig, BottleneckConfig
+from mxsep.models import STFTModule, ISTFTModule
 
 
 class MusicSourceSeparationModel(nn.Module):

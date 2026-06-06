@@ -4,7 +4,7 @@ import torch
 from einops import einops
 from torch import nn
 
-from musep.cfg import STFTConfig
+from mxsep.cfg import STFTConfig
 
 
 class STFTModule(nn.Module):

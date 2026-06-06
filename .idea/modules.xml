@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/musep.iml" filepath="$PROJECT_DIR$/.idea/musep.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/mxsep.iml" filepath="$PROJECT_DIR$/.idea/mxsep.iml" />
     </modules>
   </component>
 </project>

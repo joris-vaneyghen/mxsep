@@ -5,8 +5,8 @@ from typing import List, Dict, Any, Optional, Self
 import pandas as pd
 from audiomentations.core.transforms_interface import BaseWaveformTransform
 
-from musep.cfg import AugmentationConfig
-from musep.utils.serialize import asdict_filter_empty
+from mxsep.cfg import AugmentationConfig
+from mxsep.utils.serialize import asdict_filter_empty
 
 
 @dataclass

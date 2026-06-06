@@ -6,7 +6,7 @@ import wandb
 from omegaconf import OmegaConf
 from tqdm import tqdm
 
-from musep.cfg import Config
+from mxsep.cfg import Config
 
 
 class Monitor:

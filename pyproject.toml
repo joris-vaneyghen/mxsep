@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "musep"
+name = "mxsep"
 version = "0.1.0"
 description = "Music Source Separation Toolkit"
 readme = "README.md"
@@ -50,18 +50,18 @@ dependencies = [
 #dev = ["pytest", "black", "isort", "mypy", "flake8", "pre-commit"]
 
 [project.urls]
-Homepage = "https://github.com/joris-vaneyghen/musep"
-Repository = "https://github.com/joris-vaneyghen/musep"
-Documentation = "https://github.com/joris-vaneyghen/musep"
+Homepage = "https://github.com/joris-vaneyghen/mxsep"
+Repository = "https://github.com/joris-vaneyghen/mxsep"
+Documentation = "https://github.com/joris-vaneyghen/mxsep"
 
 [project.scripts]
-musep-dataset-info = "musep.cli.dataset_info:run"
-musep-model-info = "musep.cli.model_info:run"
-musep-generate-mixes = "musep.cli.generate_mixes:run"
-musep-train = "musep.cli.train:run"
+mxsep-dataset-info = "mxsep.cli.dataset_info:run"
+mxsep-model-info = "mxsep.cli.model_info:run"
+mxsep-generate-mixes = "mxsep.cli.generate_mixes:run"
+mxsep-train = "mxsep.cli.train:run"
 
 [tool.setuptools.package-data]
-musep = ["configs/*.yaml", "configs/**/*.yaml"]
+mxsep = ["configs/*.yaml", "configs/**/*.yaml"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

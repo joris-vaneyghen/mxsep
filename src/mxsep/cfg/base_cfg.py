@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from musep.cfg import DatasetConfig, ModelConfig, TrainingConfig
+from mxsep.cfg import DatasetConfig, ModelConfig, TrainingConfig
 
 
 @dataclass
