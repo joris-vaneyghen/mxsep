@@ -4,7 +4,7 @@ import re
 from itertools import groupby
 from operator import itemgetter
 from pathlib import Path
-from typing import Dict, Generator, Optional, Iterator
+from typing import Dict, Optional, Iterator
 
 import numpy as np
 

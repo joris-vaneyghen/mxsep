@@ -1,11 +1,10 @@
 import logging
-from pathlib import Path
 
 import hydra
-import pkg_resources
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 from torchinfo import summary
+from torchview import draw_graph
 
 from musep.cfg import Config
 from musep.models import MusicSourceSeparationModel
@@ -28,7 +27,7 @@ def run(cfg : Config):
 
     model = MusicSourceSeparationModel(cfg.model)
     summary(model, input_size=(1, 2, cfg.model.segment_length), row_settings=("var_names",), col_names=["input_size", "output_size", "num_params", "mult_adds"], depth=3, verbose=1)
-    from torchview import draw_graph
+
 
     draw_graph(
         model,

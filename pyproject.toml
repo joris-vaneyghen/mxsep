@@ -22,24 +22,32 @@ classifiers = [
 keywords = ["audio", "source-separation", "deep-learning", "pytorch"]
 requires-python = ">=3.9"
 dependencies = [
-    "torch>=2.0.0",
-    "numpy>=1.21.0",
-    "librosa>=0.10.0",
-    "soundfile>=0.12.0",
+    "torch",
+    "torchaudio",
+    "numpy",
+    "librosa",
+    "soundfile",
+    "hydra-core",
+    "torchaudio",
+    "torchinfo",
+    "torchview",
+    "tqdm",
+    "wandb",
+    "audiomentations",
+    "einops",
 ]
 
 [project.optional-dependencies]
 data = ["pandas", "tqdm", "scipy"]
-train = [
-    "torchvision",
-    "wandb",
-    "tensorboard",
-    "torch-tb-profiler",
-    "torch-xla>=2.0.0",
-    "fairscale",
-]
-inference = ["onnx", "onnxruntime", "onnx-simplifier"]
-dev = ["pytest", "black", "isort", "mypy", "flake8", "pre-commit"]
+#train = [
+#    "wandb",
+#    "tensorboard",
+#    "torch-tb-profiler",
+#    "torch-xla>=2.0.0",
+#    "fairscale",
+#]
+#inference = ["onnx", "onnxruntime", "onnx-simplifier"]
+#dev = ["pytest", "black", "isort", "mypy", "flake8", "pre-commit"]
 
 [project.urls]
 Homepage = "https://github.com/joris-vaneyghen/musep"
@@ -47,9 +55,10 @@ Repository = "https://github.com/joris-vaneyghen/musep"
 Documentation = "https://github.com/joris-vaneyghen/musep"
 
 [project.scripts]
+musep-dataset-info = "musep.cli.dataset_info:main"
+musep-model-info = "musep.cli.model_info:main"
+musep-generate-mixes = "musep.cli.generate_mixes:main"
 musep-train = "musep.cli.train:main"
-musep-separate = "musep.cli.separate:main"
-musep-prepare = "musep.cli.prepare:main"
 
 [tool.setuptools.package-data]
 musep = ["configs/*.yaml", "configs/**/*.yaml"]

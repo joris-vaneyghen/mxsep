@@ -1,5 +1,4 @@
 import logging
-import sys
 from typing import Dict, Optional, Union, Iterable, Any
 from contextlib import contextmanager
 

@@ -5,8 +5,6 @@ from typing import Dict
 import hydra
 import numpy as np
 import torch
-import wandb
-from omegaconf import OmegaConf
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 
