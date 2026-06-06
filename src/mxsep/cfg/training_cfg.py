@@ -109,7 +109,7 @@ class DatasetTrainingConfig:
 @dataclass
 class TrainingConfig:
     """
-    Main training configuration for the MUSEP model.
+    Main training configuration for the mxsep model.
 
     This class consolidates all training-related configuration including dataset,
     model, optimization, and evaluation settings.

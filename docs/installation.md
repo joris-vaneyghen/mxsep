@@ -28,10 +28,10 @@ pip install -e ".[dev]"
 
 ```bash
 # For training
-docker build -f docker/Dockerfile.train -t musep-train .
-docker run --gpus all -v $(pwd):/workspace musep-train
+docker build -f docker/Dockerfile.train -t mxsep-train .
+docker run --gpus all -v $(pwd):/workspace mxsep-train
 
 # For inference
-docker build -f docker/Dockerfile.inference -t musep-inference .
-docker run -v $(pwd):/workspace musep-inference --model model.pt --input audio.wav
+docker build -f docker/Dockerfile.inference -t mxsep-inference .
+docker run -v $(pwd):/workspace mxsep-inference --model model.pt --input audio.wav
 ```

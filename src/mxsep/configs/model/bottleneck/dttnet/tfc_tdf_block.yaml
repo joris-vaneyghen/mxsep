@@ -1,4 +1,4 @@
-_target_: musep.models.modules.TFC_TDF_Res2
+_target_: mxsep.models.modules.TFC_TDF_Res2
 l: 3
 k: 3
 bn: 2

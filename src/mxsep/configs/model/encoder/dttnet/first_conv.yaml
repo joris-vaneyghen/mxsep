@@ -1,2 +1,2 @@
-_target_: musep.models.modules.DPTDFFirstConv
+_target_: mxsep.models.modules.DPTDFFirstConv
 bn_norm: BN

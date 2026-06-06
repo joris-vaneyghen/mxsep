@@ -85,7 +85,7 @@ def run(cfg: Config):
     cfg.training.monitoring.wandb = None
     trainer = Trainer(cfg)
 
-    out_dir = "//src/musep/cli/outputs"
+    out_dir = "./outputs"
     cnt_train = 0  # segments train
     cnt_validation = 0  # segments validation
     max_writes = 64
