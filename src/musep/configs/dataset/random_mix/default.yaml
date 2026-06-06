@@ -1,0 +1,7 @@
+defaults:
+  - stem_augmentations: default
+  - mix_augmentations: default
+mix_strategy: exhaust_all_and_recycle_exhausted
+skip_silence: post_removal_of_silent_segements
+silence_threshold_dbfs: -50
+min_segment_length: ${eval:${dataset.sample_rate} * 5}

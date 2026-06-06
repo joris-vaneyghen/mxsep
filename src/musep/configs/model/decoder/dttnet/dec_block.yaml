@@ -1,0 +1,6 @@
+_target_: musep.models.modules.DPTDFDecoderBlock
+l: 3
+k: 3
+bn: 2
+bias: False
+bn_norm: BN

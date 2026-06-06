@@ -1,0 +1,16 @@
+- transformer: TimeStretchPitchShift
+  p: 0.8
+  randomize:
+    min_rate: 0.70
+    max_rate: 1.30
+    min_semitones: -3
+    max_semitones: 3
+- transformer: Gain
+  p: 0.8
+  randomize:
+    min_gain_db: -10
+    max_gain_db: 10
+- transformer: PolarityInversion
+  p: 0.5
+- transformer: ChannelSwap
+  p: 0.5

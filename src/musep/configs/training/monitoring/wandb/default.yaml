@@ -1,0 +1,9 @@
+api_key: ${oc.env:WANDB_API_KEY}
+project: Music Source Separation
+name: ${model.name}
+job_type: training
+tags: []
+notes: ""
+resume: null
+fork_from: null
+run_id: null

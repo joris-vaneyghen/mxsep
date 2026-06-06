@@ -1,0 +1,25 @@
+defaults:
+  - training: default
+  - dataset: musdb18hq
+  - model: dttnet
+  - override hydra/job_logging: default
+
+model:
+  dim:
+    f: 768
+    g: 12
+
+training:
+  stft_device: cuda
+  batch_size: 4
+  epochs: 1
+  num_workers: 4
+  gradient_clip: 1.0
+  use_amp: true
+  monitoring:
+    wandb:
+      api_key: d326d0d53ed3727c9d8219706806f3503a481f5e
+      watch:
+        log: all
+        log_freq: 10
+        log_graph: True

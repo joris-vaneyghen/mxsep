@@ -1,0 +1,72 @@
+defaults:
+  - stft: default
+  - encoder/dttnet@encoder.blocks.first_conv: first_conv
+  - encoder/dttnet@encoder.blocks.enc_block_1: enc_block
+  - encoder/dttnet@encoder.blocks.enc_block_2: enc_block
+  - encoder/dttnet@encoder.blocks.enc_block_3: enc_block
+  - bottleneck/dttnet@bottleneck.blocks.tfc_tdf_block: tfc_tdf_block
+  - decoder/dttnet@decoder.blocks.dec_block_3: dec_block
+  - decoder/dttnet@decoder.blocks.dec_block_2: dec_block
+  - decoder/dttnet@decoder.blocks.dec_block_1: dec_block
+  - decoder/dttnet@decoder.blocks.final_conv: final_conv
+
+name: dttnet
+dim:
+  f: 2048
+  t: 256
+  g: 32
+  s: ${eval:'len(${model.target_sources})'}
+
+target_sources: ${oc.dict.keys:dataset.target_sources}
+sample_rate: 44100
+segment_length: ${eval:'(${model.dim.t} - 1) * ${model.stft.hop_length}'}
+channels: 2
+
+stft:
+  n_fft: 6144
+  hop_length: 1024
+  keep_freq_bins: ${model.dim.f}
+
+complex_to_real: as_channels
+
+encoder:
+  blocks:
+    first_conv:
+      c_in: ${eval:${model.channels} * 2}
+      c_out: ${model.dim.g}
+    enc_block_1:
+      c_in: ${model.dim.g}
+      c_out: ${eval:${model.dim.g} * 2}
+      f: ${model.dim.f}
+    enc_block_2:
+      c_in: ${eval:${model.dim.g} * 2}
+      c_out: ${eval:${model.dim.g} * 3}
+      f: ${eval:${model.dim.f} // 2}
+    enc_block_3:
+      c_in: ${eval:${model.dim.g} * 3}
+      c_out: ${eval:${model.dim.g} * 4}
+      f: ${eval:${model.dim.f} // 4}
+
+bottleneck:
+  blocks:
+    tfc_tdf_block:
+      c_in: ${eval:${model.dim.g} * 4}
+      c_out: ${eval:${model.dim.g} * 4}
+      f: ${eval:${model.dim.f} // 8}
+decoder:
+  blocks:
+    dec_block_3:
+      c_in: ${eval:${model.dim.g} * 4}
+      c_out: ${eval:${model.dim.g} * 3}
+      f: ${eval:${model.dim.f} // 4}
+    dec_block_2:
+      c_in: ${eval:${model.dim.g} * 3}
+      c_out: ${eval:${model.dim.g} * 2}
+      f: ${eval:${model.dim.f} // 2}
+    dec_block_1:
+      c_in: ${eval:${model.dim.g} * 2}
+      c_out: ${model.dim.g}
+      f: ${model.dim.f}
+    final_conv:
+      c_in: ${model.dim.g}
+      c_out: ${eval:${model.channels} * ${model.dim.s} * 2}

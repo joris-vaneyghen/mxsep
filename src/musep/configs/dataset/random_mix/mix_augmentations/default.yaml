@@ -1,0 +1,5 @@
+- transformer: AddGaussianNoise
+  p: 0.2
+  randomize:
+    min_amplitude: 0.0005
+    max_amplitude: 0.02

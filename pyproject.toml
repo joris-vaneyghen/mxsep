@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "musep"
+version = "0.1.0"
+description = "Music Source Separation Toolkit"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Joris Vaneyghen", email = "joris.vaneyghen@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+keywords = ["audio", "source-separation", "deep-learning", "pytorch"]
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.21.0",
+    "librosa>=0.10.0",
+    "soundfile>=0.12.0",
+]
+
+[project.optional-dependencies]
+data = ["pandas", "tqdm", "scipy"]
+train = [
+    "torchvision",
+    "wandb",
+    "tensorboard",
+    "torch-tb-profiler",
+    "torch-xla>=2.0.0",
+    "fairscale",
+]
+inference = ["onnx", "onnxruntime", "onnx-simplifier"]
+dev = ["pytest", "black", "isort", "mypy", "flake8", "pre-commit"]
+
+[project.urls]
+Homepage = "https://github.com/joris-vaneyghen/musep"
+Repository = "https://github.com/joris-vaneyghen/musep"
+Documentation = "https://github.com/joris-vaneyghen/musep"
+
+[project.scripts]
+musep-train = "musep.cli.train:main"
+musep-separate = "musep.cli.separate:main"
+musep-prepare = "musep.cli.prepare:main"
+
+[tool.setuptools.package-data]
+musep = ["configs/*.yaml", "configs/**/*.yaml"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

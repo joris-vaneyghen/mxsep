@@ -1,0 +1,26 @@
+defaults:
+  - random_mix: default
+
+train:
+  audio_file_csv:
+    - /kaggle/input/notebooks/jorisvaneyghen/musdb18hq-csv/train.csv
+  predefined_jsonl_path: ${oc.env:PWD}/train.jsonl
+
+validation:
+  audio_file_csv:
+    - /kaggle/input/notebooks/jorisvaneyghen/musdb18hq-csv/validation.csv
+  predefined_jsonl_path: ${oc.env:PWD}/validation.jsonl
+
+sample_rate: ${model.sample_rate}
+segment_length: ${model.segment_length}
+channels: ${model.channels}
+
+target_sources:
+  Drums:
+    - Drums
+  Bass:
+    - Bass
+  Vocals:
+    - Vocals
+  Other:
+    - Other

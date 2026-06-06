@@ -1,0 +1,61 @@
+defaults:
+  - random_mix: default
+
+train:
+  audio_file_csv:
+    - /kaggle/input/notebooks/jorisvaneyghen/slakh2100-csv/train.csv
+  predefined_jsonl_path: ${oc.env:PWD}/train.jsonl
+
+validation:
+  audio_file_csv:
+    - /kaggle/input/notebooks/jorisvaneyghen/slakh2100-csv/validation.csv
+  predefined_jsonl_path: ${oc.env:PWD}/validation.jsonl
+
+sample_rate: ${model.sample_rate}
+segment_length: ${model.segment_length}
+channels: ${model.channels}
+
+target_sources:
+  Drums:
+    - Drums
+  Bass:
+    - Bass
+  Other:
+    - Guitar
+    - Piano
+    - Strings (continued)
+    - Brass
+    - Synth Pad
+    - Reed
+    - Organ
+    - Pipe
+    - Synth Lead
+    - Chromatic Percussion
+    - Strings
+    - Sound effects
+    - Sound Effects
+    - Ethnic
+    - Percussive
+
+
+
+
+#{
+#  "Guitar": 4459,
+#  "Piano": 2837,
+#  "Strings (continued)": 2777,
+#  "Bass": 2035,
+#  "Drums": 1710,
+#  "Brass": 872,
+#  "Synth Pad": 743,
+#  "Reed": 650,
+#  "Organ": 605,
+#  "Pipe": 568,
+#  "Synth Lead": 491,
+#  "Chromatic Percussion": 371,
+#  "Strings": 361,
+#  "Sound effects": 283,
+#  "Sound Effects": 228,
+#  "Ethnic": 122,
+#  "Percussive": 83
+#}
