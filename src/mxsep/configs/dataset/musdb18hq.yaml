@@ -9,7 +9,7 @@ train:
 validation:
   audio_file_csv:
     - /kaggle/input/notebooks/jorisvaneyghen/musdb18hq-csv/validation.csv
-  predefined_jsonl_path: ${oc.env:PWD}/validation
+  predefined_jsonl_path: ${oc.env:PWD}/validation.jsonl
 
 sample_rate: ${model.sample_rate}
 segment_length: ${model.segment_length}
