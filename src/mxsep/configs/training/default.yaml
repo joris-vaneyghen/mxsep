@@ -10,7 +10,7 @@ stft_device: cuda
 #  step_size: 10
 #  gamma: 0.2
 mus_sep_loss_domain: tf_domain
-epochs: 10
+epochs: 100
 batch_size: 4
 checkpoint_interval: 10
 checkpoint_dir: ./checkpoints
