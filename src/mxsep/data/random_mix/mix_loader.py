@@ -25,7 +25,7 @@ def load_mix(mix_def: Mix, sample_rate: int, segment_length: int, nb_channels: i
         stems.append((segment_def.stem, segment))
 
     # Create mix (with potential mixing augmentations)
-    mix = _create_mix(stems, mix_def, sample_rate)
+    mix = _create_mix(stems, mix_def, sample_rate, segment_length, nb_channels)
 
     return stems, mix
 
@@ -40,11 +40,14 @@ def _load_audio_segment(path:str, offset:int, length:int)->Tuple[np.ndarray, int
         audio = np.expand_dims(audio, axis=1)
     return audio.T, sr
 
-def _create_mix(stems:List[Tuple[str, np.ndarray]], mix_def:Mix, sample_rate) -> np.ndarray:
+def _create_mix(stems:List[Tuple[str, np.ndarray]], mix_def:Mix, sample_rate, segment_length, nb_channels) -> np.ndarray:
     """Create mix from stem segments"""
     # Sum stems
     stems_segments = [segment for stem, segment in stems]
-    mix = np.stack(stems_segments).sum(axis=0)
+    if len(stems_segments) == 0:
+        mix = np.zeros((nb_channels, segment_length), dtype=np.float32)
+    else:
+        mix = np.stack(stems_segments).sum(axis=0)
 
     # Apply mix-level augmentations
     if mix_def.mix_augmentations:

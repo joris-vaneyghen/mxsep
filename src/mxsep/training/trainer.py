@@ -42,6 +42,8 @@ class Trainer:
         self.deterministic = cfg.training.deterministic
         self.target_sources = cfg.model.target_sources
 
+        self.checkpoint_dir = cfg.training.checkpoint_dir
+
         if self.use_amp:
             self.scaler = GradScaler()
 
@@ -243,7 +245,7 @@ class Trainer:
                 with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss = self.loss_fn(outputs, y)
-                val_loss += loss.item()
+                val_loss = loss.item()
 
                 # Compute metrics
                 if self.spectrogram_mode:
@@ -272,10 +274,10 @@ class Trainer:
         # if self.config.use_wandb:
         #     wandb.log(avg_metrics, step=self.global_step)
 
-        # # Save best model
-        # if avg_metrics['val_loss'] < self.best_metric:
-        #     self.best_metric = avg_metrics['val_loss']
-        #     self._save_checkpoint('best_model.pt')
+        # Save best model
+        if avg_metrics['val_sdr'] < self.best_metric:
+            self.best_metric = avg_metrics['val_sdr']
+            self._save_checkpoint('best_model.pt')
 
         return avg_metrics
 
@@ -353,7 +355,7 @@ class Trainer:
 
     def _save_checkpoint(self, filename: str = 'checkpoint.pt'):
         """Save model checkpoint"""
-        checkpoint_dir = Path(self.config.checkpoint_dir)
+        checkpoint_dir = Path(self.checkpoint_dir)
         checkpoint_dir.mkdir(exist_ok=True)
 
         checkpoint = {
@@ -361,10 +363,11 @@ class Trainer:
             'global_step': self.global_step,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
+            # 'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
             'best_metric': self.best_metric,
-            'config': self.config.to_dict()
+            # 'config': self.config.to_dict()
         }
+        print(f"Save checkpoint {filename}")
 
         torch.save(checkpoint, checkpoint_dir / filename)
 

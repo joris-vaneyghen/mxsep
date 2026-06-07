@@ -209,3 +209,5 @@ __marimo__/
 /src/mxsep/cli/outputs/
 /tmp/
 /configs/
+/src/mxsep/cli/checkpoints/
+/src/mxsep/cli/wandb/
