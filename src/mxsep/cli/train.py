@@ -4,6 +4,7 @@ import hydra
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
+from mxsep import training
 from mxsep.cfg import Config
 from mxsep.training import Trainer
 
@@ -23,6 +24,11 @@ def run(cfg : Config):
 
     cfg: Config = OmegaConf.merge(defaults, cfg)
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+    try:
+        cfg_dict["training"]["monitoring"]["wandb"]["api_key"] = "******"
+    except (KeyError, TypeError):
+        pass
+    
     print(OmegaConf.to_yaml(cfg_dict))
     trainer = Trainer(cfg)
     trainer.train()

@@ -16,11 +16,11 @@ segment_length: ${model.segment_length}
 channels: ${model.channels}
 
 target_sources:
-  Drums:
-    - Drums
-  Bass:
-    - Bass
-  Vocals:
-    - Vocals
-  Other:
-    - Other
+  drums:
+    - drums
+  bass:
+    - bass
+  vocals:
+    - vocals
+  other:
+    - other
