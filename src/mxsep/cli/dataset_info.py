@@ -80,8 +80,8 @@ def run(cfg: Config):
     log.info("Info level message")
 
     cfg: Config = OmegaConf.merge(defaults, cfg)
-    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
-    print(OmegaConf.to_yaml(cfg_dict))
+    dataset_dict = OmegaConf.to_container(cfg.dataset, resolve=True)
+    print(OmegaConf.to_yaml(dataset_dict))
     cfg.training.monitoring.wandb = None
     trainer = Trainer(cfg)
 
