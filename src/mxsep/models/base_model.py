@@ -3,6 +3,7 @@ from typing import Tuple, List
 import hydra
 import torch
 from einops import einops
+from omegaconf import OmegaConf
 from torch import nn, Tensor
 
 from mxsep.cfg import ModelConfig, EncoderConfig, DecoderConfig, BottleneckConfig
@@ -14,6 +15,7 @@ class MusicSourceSeparationModel(nn.Module):
 
     def __init__(self, config: ModelConfig):
         super().__init__()
+        self.config = OmegaConf.to_container(config, resolve=True)
         self.stft = STFTModule(config.stft)
         self.istft = ISTFTModule(config.stft)
         self.complex_to_real = config.complex_to_real
@@ -194,7 +196,7 @@ class DualPathBottleneck(nn.Module):
 
         for n, path in enumerate(self.paths):
 
-            for block_name, block in self.paths.items():
+            for block_name, block in path.items():
                 x = block(x)
 
             if n < len(self.paths) - 1:

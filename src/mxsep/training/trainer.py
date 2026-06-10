@@ -352,6 +352,24 @@ class Trainer:
         return metrics
 
 
+    def _load_checkpoint(self, filename: str = 'checkpoint.pt'):
+        """Load model checkpoint"""
+        checkpoint_path = Path(self.checkpoint_dir) / filename
+        if not checkpoint_path.exists():
+            print(f"Checkpoint {filename} not found, starting from scratch.")
+            return
+
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        # if self.scheduler and checkpoint['scheduler_state_dict']:
+        #     self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        self.epoch = checkpoint['epoch']
+        self.global_step = checkpoint['global_step']
+        self.best_metric = checkpoint.get('best_metric', float('inf'))
+
+        print(f"Loaded checkpoint {filename} (epoch {self.epoch}, global step {self.global_step})")
+
 
     def _save_checkpoint(self, filename: str = 'checkpoint.pt'):
         """Save model checkpoint"""
@@ -365,7 +383,7 @@ class Trainer:
             'optimizer_state_dict': self.optimizer.state_dict(),
             # 'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
             'best_metric': self.best_metric,
-            # 'config': self.config.to_dict()
+            'config': self.model.config,
         }
         print(f"Save checkpoint {filename}")
 

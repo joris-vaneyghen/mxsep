@@ -4,12 +4,12 @@ defaults:
   - encoder/dttnet@encoder.blocks.enc_block_1: enc_block
   - encoder/dttnet@encoder.blocks.enc_block_2: enc_block
   - encoder/dttnet@encoder.blocks.enc_block_3: enc_block
-  - bottleneck/dttnet@bottleneck.blocks.tfc_tdf_block: tfc_tdf_block
+  - bottleneck/dttnet@encoder.blocks.tfc_tdf_block: tfc_tdf_block
+  - bottleneck/dttnet@bottleneck.blocks.rnn_module: rnn_module
   - decoder/dttnet@decoder.blocks.dec_block_3: dec_block
   - decoder/dttnet@decoder.blocks.dec_block_2: dec_block
   - decoder/dttnet@decoder.blocks.dec_block_1: dec_block
   - decoder/dttnet@decoder.blocks.final_conv: final_conv
-
 name: dttnet
 dim:
   f: 2048
@@ -46,13 +46,22 @@ encoder:
       c_in: ${eval:${model.dim.g} * 3}
       c_out: ${eval:${model.dim.g} * 4}
       f: ${eval:${model.dim.f} // 4}
-
-bottleneck:
-  blocks:
     tfc_tdf_block:
       c_in: ${eval:${model.dim.g} * 4}
       c_out: ${eval:${model.dim.g} * 4}
       f: ${eval:${model.dim.f} // 8}
+
+bottleneck:
+  dual_path: True
+  dual_path_times: 6
+#  n_heads: 2 todo implement
+
+  blocks:
+    rnn_module:
+      input_dim_size: ${eval:${model.dim.g} * 4}
+      hidden_dim_size: ${eval:${model.dim.g} * 8}
+      group_num: ${eval:${model.dim.g} // 4}
+
 decoder:
   blocks:
     dec_block_3:

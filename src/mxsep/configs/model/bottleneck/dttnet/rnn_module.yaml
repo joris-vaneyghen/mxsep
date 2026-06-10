@@ -1,0 +1,3 @@
+_target_: mxsep.models.modules.RNNModule
+rnn_type: LSTM
+bidirectional: true
