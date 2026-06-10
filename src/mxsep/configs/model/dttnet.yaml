@@ -53,7 +53,7 @@ encoder:
 
 bottleneck:
   dual_path: True
-  dual_path_times: 6
+  dual_path_times: 4
 #  n_heads: 2 todo implement
 
   blocks:
