@@ -10,7 +10,19 @@ import numpy as np
 
 from mxsep.cfg import DatasetConfig
 
-allowed_audio_extensions = ['wav', 'mp3', 'flac', 'ogg', 'aiff', 'aac']
+allowed_audio_extensions = [
+    "wav",
+    "aiff",
+    "aifc",
+    "flac",
+    "au",
+    "snd",
+    "raw",
+    "caf",
+    "ogg",
+    "mp3",
+    "aac",
+]
 
 
 def is_silence(

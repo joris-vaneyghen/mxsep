@@ -1,0 +1,8 @@
+model_path: ${oc.env:MXSEP_MODEL_PATH}
+device: cuda
+input_dir: ${oc.env:PWD}
+output_dir: ${oc.env:PWD}
+output_ext: mp3
+batch_size: 4
+nb_passes: 2
+crossfade_duration: 20
