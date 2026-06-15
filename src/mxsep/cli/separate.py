@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from pathlib import Path
 
 import hydra
@@ -35,7 +36,10 @@ def run(cfg : DictConfig):
     else:
         tta = None
     separator = Separator(model_path, device=device, tta=tta, crossfade_duration=crossfade_duration, nb_passes=nb_passes, batch_size=batch_size, output_ext=output_ext)
+    start = time.time()
     separator.separate_dir(input_dir, output_dir)
+    end = time.time()
+    log.info(f"Separation completed in {end - start:.2f} seconds.")
 
 if __name__ == '__main__':
     run()

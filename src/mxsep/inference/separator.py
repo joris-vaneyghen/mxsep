@@ -222,10 +222,8 @@ class Separator:
 
                         # Check if this pass is now complete
                         if len(state["pass_chunks"][pass_id]) == state["pass_expected"][pass_id]:
-                            start = time.time()
                             self._finalize_pass(fname, pass_id, state, source_idx_range)
-                            end = time.time()
-                            logger.info(f"Finalized pass {pass_id} for {fname} in {end - start:.3f}s")
+                            logger.info(f"Finalized pass {pass_id} for {fname}")
 
                         # If all passes are complete, finalize the file
                         if len(state["completed_passes"]) == self.nb_passes:
