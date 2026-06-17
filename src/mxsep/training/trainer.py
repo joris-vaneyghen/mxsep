@@ -98,7 +98,7 @@ class Trainer:
         # Trackers
         self.epoch = 0
         self.global_step = 0
-        self.best_metric = float("inf")
+        self.best_metric = float("-inf") # todo if metric = sdr then -inf else +inf
 
         if cfg.training.resume_from_checkpoint:
             self._load_checkpoint(cfg.training.resume_from_checkpoint)
