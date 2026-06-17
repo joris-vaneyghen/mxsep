@@ -6,6 +6,7 @@ import hydra
 import numpy as np
 import torch
 from torch.amp import GradScaler, autocast
+from torch.types import FileLike
 from torch.utils.data import DataLoader
 
 from mxsep.cfg import Config
@@ -93,6 +94,10 @@ class Trainer:
                 optimizer=self.optimizer)
         else:
             self.lr_scheduler = None
+
+        if cfg.training.resume_from_checkpoint:
+            self._load_checkpoint(cfg.training.resume_from_checkpoint)
+            self.epochs += 1
 
         self.loss_fn = hydra.utils.instantiate(cfg.training.loss)
         
@@ -352,7 +357,7 @@ class Trainer:
         return metrics
 
 
-    def _load_checkpoint(self, filename: str = 'checkpoint.pt'):
+    def _load_checkpoint(self, filename: FileLike):
         """Load model checkpoint"""
         checkpoint_path = Path(self.checkpoint_dir) / filename
         if not checkpoint_path.exists():

@@ -350,6 +350,7 @@ class TrainingConfig:
     batch_size: int = 8
     checkpoint_interval: int = 1
     checkpoint_dir: Path = field(default_factory=Path)
+    resume_from_checkpoint: Optional[Path] = None
     num_workers: int = 4
     stft_device: str = 'cuda'
     device: str = 'cuda'
