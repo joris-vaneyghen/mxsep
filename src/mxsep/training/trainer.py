@@ -95,9 +95,14 @@ class Trainer:
         else:
             self.lr_scheduler = None
 
+        # Trackers
+        self.epoch = 0
+        self.global_step = 0
+        self.best_metric = float("inf")
+
         if cfg.training.resume_from_checkpoint:
             self._load_checkpoint(cfg.training.resume_from_checkpoint)
-            self.epochs += 1
+            self.epoch += 1
 
         self.loss_fn = hydra.utils.instantiate(cfg.training.loss)
         
@@ -105,10 +110,7 @@ class Trainer:
 
         self.monitor.watch(self.model, self.loss_fn)
 
-        # Trackers
-        self.epoch = 0
-        self.global_step = 0
-        self.best_metric = float('inf')
+        
 
 
     def init_randomizer(self):
