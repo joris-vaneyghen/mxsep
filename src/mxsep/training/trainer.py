@@ -282,7 +282,7 @@ class Trainer:
         #     wandb.log(avg_metrics, step=self.global_step)
 
         # Save best model
-        if avg_metrics['val_sdr'] < self.best_metric:
+        if avg_metrics['val_sdr'] > self.best_metric: #todo if not sdr then '<'
             self.best_metric = avg_metrics['val_sdr']
             self._save_checkpoint('best_model.pt')
 
