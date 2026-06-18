@@ -107,6 +107,7 @@ class Trainer:
         self.loss_fn = hydra.utils.instantiate(cfg.training.loss)
         
         self.monitor = Monitor(cfg)
+        self.monitor.global_step = self.global_step
 
         self.monitor.watch(self.model, self.loss_fn)
 
