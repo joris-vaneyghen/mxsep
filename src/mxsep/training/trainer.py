@@ -286,6 +286,8 @@ class Trainer:
             self.best_metric = avg_metrics['val_sdr']
             self._save_checkpoint('best_model.pt')
 
+        self._save_checkpoint('latest_model.pt')
+
         return avg_metrics
 
     # def _prepare_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
