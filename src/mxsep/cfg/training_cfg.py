@@ -318,7 +318,7 @@ class WandbConfig:
     notes: str = ''
     run_id: Optional[str] = None
     resume: str = "allow"
-    fork_run: Optional[str] = None
+    fork_from: Optional[str] = None # should be {run_id}?_step={step}
     watch:Optional[dict] = None
 
 

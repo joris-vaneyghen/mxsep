@@ -52,7 +52,7 @@ class Monitor:
             )
         elif wandb_cfg.fork_from:
             wandb.init(
-                fork_from=wandb_cfg.fork_run,
+                fork_from=wandb_cfg.fork_from,
                 project=wandb_cfg.project,
                 name=wandb_cfg.name,
                 job_type=wandb_cfg.job_type,
