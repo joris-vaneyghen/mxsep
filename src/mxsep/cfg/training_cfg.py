@@ -316,9 +316,9 @@ class WandbConfig:
     name: str = "experiment_name"
     tags: list = field(default_factory=list)
     notes: str = ''
-    resume: Optional[str] = ''
-    fork_from: Optional[str] = ''
-    run_id: Optional[str] = ''
+    run_id: Optional[str] = None
+    resume: str = "allow"
+    fork_run: Optional[str] = None
     watch:Optional[dict] = None
 
 

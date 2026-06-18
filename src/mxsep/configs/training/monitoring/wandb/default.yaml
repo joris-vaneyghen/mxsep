@@ -4,6 +4,4 @@ name: ${model.name}
 job_type: training
 tags: []
 notes: ""
-resume: null
-fork_from: null
-run_id: null
+resume: "allow"

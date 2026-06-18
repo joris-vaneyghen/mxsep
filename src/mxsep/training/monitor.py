@@ -37,16 +37,40 @@ class Monitor:
             wandb.login(key=wandb_cfg.api_key)
 
         cfg_dict = OmegaConf.to_container(cfg, resolve=True)
-
-        wandb.init(
-            project=wandb_cfg.project,
-            name=wandb_cfg.name,
-            job_type=wandb_cfg.job_type,
-            tags=wandb_cfg.tags,
-            notes=wandb_cfg.notes,
-            config=cfg_dict,
-            sync_tensorboard=True
-        )
+        
+        if wandb_cfg.resume_run_id:
+            wandb.init(
+                id=wandb_cfg.run_id,
+                resume=wandb_cfg.resume,
+                project=wandb_cfg.project,
+                name=wandb_cfg.name,
+                job_type=wandb_cfg.job_type,
+                tags=wandb_cfg.tags,
+                notes=wandb_cfg.notes,
+                config=cfg_dict,
+                # sync_tensorboard=True,
+            )
+        elif wandb_cfg.fork_from:
+            wandb.init(
+                fork_from=wandb_cfg.fork_run,
+                project=wandb_cfg.project,
+                name=wandb_cfg.name,
+                job_type=wandb_cfg.job_type,
+                tags=wandb_cfg.tags,
+                notes=wandb_cfg.notes,
+                config=cfg_dict,
+                # sync_tensorboard=True
+            )
+        else:
+            wandb.init(
+                project=wandb_cfg.project,
+                name=wandb_cfg.name,
+                job_type=wandb_cfg.job_type,
+                tags=wandb_cfg.tags,
+                notes=wandb_cfg.notes,
+                config=cfg_dict,
+                # sync_tensorboard=True
+            )
         self.logger.info("Weights & Biases initialized successfully")
 
     
