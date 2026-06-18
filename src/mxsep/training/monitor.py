@@ -38,7 +38,7 @@ class Monitor:
 
         cfg_dict = OmegaConf.to_container(cfg, resolve=True)
         
-        if wandb_cfg.resume_run_id:
+        if wandb_cfg.run_id:
             wandb.init(
                 id=wandb_cfg.run_id,
                 resume=wandb_cfg.resume,
