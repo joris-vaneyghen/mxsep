@@ -25,10 +25,10 @@ class PredefinedMixDataset(Dataset):
         self.output_target_waveform = stft_cfg # and split == "validation"
         if split == 'train':
             assert config.train.predefined_jsonl_path
-            self.jsonl_path: Path = config.train.predefined_jsonl_path
+            self.jsonl_path = Path(config.train.predefined_jsonl_path)
         elif split == 'validation':
             assert config.validation.predefined_jsonl_path
-            self.jsonl_path: Path = config.validation.predefined_jsonl_path
+            self.jsonl_path = Path(config.validation.predefined_jsonl_path)
         else:
             raise Exception(f"Unknown predefined split: {split}")
 
