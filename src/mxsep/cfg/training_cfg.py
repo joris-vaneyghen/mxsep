@@ -274,40 +274,6 @@ class TrainingConfig:
             yaml.dump(self.to_dict(), f, sort_keys=False, indent=2)
 
 
-if __name__ == '__main__':
-    # Example usage
-    config = TrainingConfig(
-        train_set=DatasetTrainingConfig(
-            random_mix_config_path="configs/random_mix.yaml",
-            predefined_path="configs/predefined_mixes.jsonl",
-            predefined_type=PredefinedType.PREDEFINED_MIXES,
-            target_source_stem_mapping={"vocals": ["lead_vocal", "backing_vocal"]}
-        ),
-        validation_set=DatasetTrainingConfig(
-            random_mix_config_path="configs/random_mix.yaml",
-            predefined_path="configs/predefined_mixes.jsonl",
-            predefined_type=PredefinedType.PREDEFINED_MIXES,
-            target_source_stem_mapping={"vocals": ["lead_vocal", "backing_vocal"]}
-        ),
-        model_config_path="configs/model.yaml",
-        stft_device="cuda",
-        scheduler="cosine",
-        scheduler_params={"T_max": 100},
-        optimizer="adam",
-        optimizer_params={"lr": 1e-4},
-        wandb_key="your_wandb_key_here",
-        loss_function="multi_resolution_stft",
-        evaluation_metric=["si_sdr", "pesq"]
-    )
-
-    # Save to YAML
-    config.to_yaml("training_config.yaml")
-
-    # # Load from YAML
-    loaded_config = TrainingConfig.from_yaml("training_config.yaml")
-    print(loaded_config)
-
-
 @dataclass
 class WandbConfig:
     api_key: str = "my_secret"
@@ -347,10 +313,10 @@ class TrainingConfig:
     epochs: int = 100
     use_amp: bool = True
     gradient_clip: Optional[float] = None
-    batch_size: int = 8
+    batch_size: int = 4
     checkpoint_interval: int = 1
-    checkpoint_dir: Path = field(default_factory=Path)
-    resume_from_checkpoint: Optional[Path] = None
+    checkpoint_dir: str = './checkpoints'
+    resume_from_checkpoint: Optional[str] = None
     num_workers: int = 4
     stft_device: str = 'cuda'
     device: str = 'cuda'

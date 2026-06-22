@@ -43,7 +43,7 @@ class Trainer:
         self.deterministic = cfg.training.deterministic
         self.target_sources = cfg.model.target_sources
 
-        self.checkpoint_dir = cfg.training.checkpoint_dir
+        self.checkpoint_dir = Path(cfg.training.checkpoint_dir)
 
         if self.use_amp:
             self.scaler = GradScaler()

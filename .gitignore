@@ -211,3 +211,4 @@ __marimo__/
 /configs/
 /src/mxsep/cli/checkpoints/
 /src/mxsep/cli/wandb/
+/src/mxsep/cli/kaggle/

@@ -17,4 +17,5 @@ checkpoint_dir: ./checkpoints
 num_workers: 4
 seed: 42
 deterministic: true
+use_amp: true
 

@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any, List, Optional
 
 
@@ -131,10 +130,10 @@ class AudioFilesConfig:
     audio_files_pattern: list[str] = field(default_factory=list)
     """List of Glob-like patterns with optional {stem} placeholder e.g., '/path/to/{stem}/*.mp3', '/path/**/{stem}_*.wav'"""
 
-    audio_file_csv: list[Path] = field(default_factory=list)
+    audio_file_csv: list[str] = field(default_factory=list)
     """List of csv files with columns 'stem' and 'path' for audio files"""
 
-    predefined_jsonl_path: Optional[Path] = field(default_factory=Path)
+    predefined_jsonl_path: Optional[str] = None
     """ path to jsonl file or directory containing 0.jsonl ... n.jsonl (for n epochs . containing segments & mix to train or validate"""
 
 

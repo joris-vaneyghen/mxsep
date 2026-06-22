@@ -55,26 +55,30 @@ def run(cfg : Config):
 
     assert cfg.dataset.random_mix
     assert cfg.dataset.train.predefined_jsonl_path
+    assert cfg.dataset.validation.predefined_jsonl_path
 
-    if cfg.dataset.train.predefined_jsonl_path.suffix == '.jsonl':
-        jsonl_file =cfg.dataset.train.predefined_jsonl_path
+    train_predefined_jsonl_path = Path(cfg.dataset.train.predefined_jsonl_path)
+    validation_predefined_jsonl_path = Path(cfg.dataset.validation.predefined_jsonl_path)
+
+    if train_predefined_jsonl_path.suffix == '.jsonl':
+        jsonl_file =train_predefined_jsonl_path
         # assert that the file has jsonl extension
         generate_train_jsonl(0, jsonl_file, cfg.dataset)
     else:
         assert cfg.training
         assert cfg.training.epochs
-        jsonl_dir =  cfg.dataset.train.predefined_jsonl_path
+        jsonl_dir =  train_predefined_jsonl_path
         for epoch in range(cfg.training.epochs):
             jsonl_file = jsonl_dir / f"{epoch}.jsonl"
             generate_train_jsonl(epoch, jsonl_file, cfg.dataset)
 
 
-    if cfg.dataset.validation.predefined_jsonl_path.suffix == '.jsonl':
-        jsonl_file =cfg.dataset.validation.predefined_jsonl_path
+    if validation_predefined_jsonl_path.suffix == '.jsonl':
+        jsonl_file =validation_predefined_jsonl_path
         # assert that the file has jsonl extension
         generate_validation_jsonl(jsonl_file, cfg.dataset)
     else:
-        jsonl_dir =  cfg.dataset.validation.predefined_jsonl_path
+        jsonl_dir =  validation_predefined_jsonl_path
         for epoch in range(cfg.training.epochs):
             jsonl_file = jsonl_dir / "0.jsonl"
             generate_validation_jsonl(jsonl_file, cfg.dataset)
