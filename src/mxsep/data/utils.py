@@ -5,7 +5,6 @@ from itertools import groupby
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, Optional, Iterator
-from torch.types import FileLike
 import numpy as np
 
 from mxsep.cfg import DatasetConfig
@@ -193,7 +192,7 @@ def iter_audio_files_pattern_(
 
             yield result
 
-def iter_audio_files_csv_(csv_file: FileLike, stem: Optional[str] = None) -> Iterator[Dict]:
+def iter_audio_files_csv_(csv_file, stem: Optional[str] = None) -> Iterator[Dict]:
     """
     Iterate audio files matching a pattern with optional stem extraction.
 

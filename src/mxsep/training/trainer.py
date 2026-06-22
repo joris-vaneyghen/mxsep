@@ -6,7 +6,6 @@ import hydra
 import numpy as np
 import torch
 from torch.amp import GradScaler, autocast
-from torch.types import FileLike
 from torch.utils.data import DataLoader
 
 from mxsep.cfg import Config
@@ -362,7 +361,7 @@ class Trainer:
         return metrics
 
 
-    def _load_checkpoint(self, filename: FileLike):
+    def _load_checkpoint(self, filename):
         """Load model checkpoint"""
         checkpoint_path = Path(self.checkpoint_dir) / filename
         if not checkpoint_path.exists():
