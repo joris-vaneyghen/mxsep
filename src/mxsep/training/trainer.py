@@ -56,7 +56,7 @@ class Trainer:
             else:
                 self.train_dataset = PredefinedMixDataset(cfg.dataset, split='train')
 
-            shuffle = cfg.dataset.train.predefined_jsonl_path.suffix == '.jsonl'  # if single json file per epoch we should shuffle.
+            shuffle = Path(cfg.dataset.train.predefined_jsonl_path).suffix == '.jsonl'  # if single json file per epoch we should shuffle.
             self.train_loader = DataLoader(self.train_dataset, batch_size=cfg.training.batch_size, shuffle=shuffle,
                                            num_workers=cfg.training.num_workers, drop_last=True)
         else:
