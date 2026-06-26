@@ -1,4 +1,5 @@
 import random
+import time
 from pathlib import Path
 from typing import Dict
 
@@ -32,6 +33,14 @@ class Trainer:
             self.device = torch.device('cuda')
         else:
             self.device = torch.device('cpu')
+
+        
+        if cfg.training.max_runtime:
+            self.start_time = time.time()
+            self.last_run = -1
+            self.max_runtime = cfg.training.max_runtime
+        else:
+            self.max_runtime = None
 
         self.spectrogram_mode = cfg.training.stft_device == 'cpu'
 
@@ -401,6 +410,7 @@ class Trainer:
     def train(self):
         """Main training loop"""
         for epoch in range(self.epoch, self.epochs):
+            start_time = time.time()
             self.epoch = epoch
 
             # Train
@@ -413,6 +423,14 @@ class Trainer:
             self.monitor.log_epoch_summary(
                 train_metrics, val_metrics, self.epoch
             )
+
+            self.last_run = time.time() - start_time
+            if self.max_runtime:
+                total_time = time.time() - self.start_time
+                left =  self.max_runtime - total_time
+                if left < self.last_run:
+                    break
+                
 
 
 

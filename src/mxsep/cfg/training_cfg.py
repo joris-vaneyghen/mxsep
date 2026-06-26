@@ -321,4 +321,5 @@ class TrainingConfig:
     stft_device: str = 'cuda'
     device: str = 'cuda'
     device_ids: list = field(default_factory=list)  # for distributed training, e.g. [0, 1, 2, 3]
+    max_runtime:Optional[int] = None # max runtime in seconds (if not set runtime is unlimited)
     monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
