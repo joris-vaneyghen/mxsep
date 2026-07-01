@@ -438,7 +438,7 @@ class DDPTrainer:
             'optimizer_state_dict': self.optimizer.state_dict(),
             # 'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
             'best_metric': self.best_metric,
-            'config': self.model.config,
+            'config': self.model.module.config,
         }
         print(f"Save checkpoint {filename}")
 
