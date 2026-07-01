@@ -1,6 +1,5 @@
 # see example https://github.com/pytorch/examples/blob/main/distributed/ddp-tutorial-series/multigpu_torchrun.py
-
-
+import math
 import random
 import time
 from pathlib import Path
@@ -153,11 +152,12 @@ class DDPTrainer:
     def train_epoch(self) -> dict[str, float] | None:
         """Train for one epoch"""
         if self.multiple_predefined_mixes:
-            self.train_dataset.init_epoch(self.epoch)  # Load new mixes for this epoch
+            # Load new mixes for this epoch
+            self.train_dataset.init_epoch(self.epoch)  
             # reset sampler to allow variable dataset lengths
-            self.train_loader.sampler = DistributedSampler(
-                dataset=self.train_dataset, shuffle=False, drop_last=True
-            )
+            num_samples = len(self.train_dataset) // self.world_size
+            self.train_loader.sampler.num_samples = num_samples
+            self.train_loader.sampler.total_size = num_samples  * self.world_size
         else:
             self.train_loader.sampler.set_epoch(self.epoch)
 
