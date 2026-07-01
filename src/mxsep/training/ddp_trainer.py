@@ -155,6 +155,7 @@ class DDPTrainer:
         self.train_loader.sampler.set_epoch(self.epoch)
         self.model.train()
         epoch_loss = 0.0
+        steps = 0
         epoch_metrics = {}
         for batch_idx, batch in enumerate(self.train_loader):
             # Move to device
@@ -210,15 +211,16 @@ class DDPTrainer:
                 self.lr_scheduler.step()
 
             # Update trackers
-            dist.reduce(loss, dst=0, op=dist.ReduceOp.AVG)
+            steps += 1
             self.global_step += 1
+                
+            dist.reduce(loss, dst=0, op=dist.ReduceOp.AVG)
 
             # Logging
             # if self.global_step % self.monitor.log_metrics_interval == 0:
             #     metrics = self._compute_metrics(outputs, outputs, y)
             # else :
             #     metrics = {}
-
 
 
             if self.rank == 0:
@@ -228,7 +230,7 @@ class DDPTrainer:
                     "batch_idx": batch_idx,
                     "epoch": self.epoch,
                     "loss": batch_loss,
-                    "loss_avg": epoch_loss / (batch_idx + 1),
+                    "loss_avg": epoch_loss / steps,
                     "lr": self.optimizer.param_groups[0][
                         "lr"
                     ],  # or self.optimizer.defaults['lr'],
@@ -246,7 +248,7 @@ class DDPTrainer:
 
         if self.rank == 0:
             # Calculate epoch averages
-            avg_loss = epoch_loss / len(self.train_loader)
+            avg_loss = epoch_loss / steps
             return {'avg_loss': avg_loss}
         else :
             return None
@@ -287,20 +289,24 @@ class DDPTrainer:
                     all_y  = [
                         torch.zeros_like(y, device=self.device) for i in range(self.world_size)
                     ]
+                    all_losses = [
+                        torch.zeros_like(loss, device=self.device) for i in range(self.world_size)
+                    ]
                 else:
                     all_outputs = None
                     all_y = None
+                    all_losses = None
 
                 dist.gather(outputs, gather_list=all_outputs, dst=0)
                 dist.gather(outputs, gather_list=all_y, dst=0)
-                dist.reduce(loss, dst=0, op=dist.ReduceOp.AVG)
+                dist.gather(loss, gather_list=all_losses, dst=0)
 
                 if self.rank == 0:
-                    val_loss = loss.item()
-                    for (output, y) in zip(all_outputs, all_y):
+                    for (output, y, loss) in zip(all_outputs, all_y, all_losses):
                         metrics = self._compute_metrics(outputs, y)
                         metrics = {f'val_{k}':v for k, v in metrics.items()}
-                        metrics['val_loss'] = val_loss
+                        val_loss = loss.item()
+                        metrics["val_loss"] = val_loss
                         for key, value in metrics.items():
                             if key not in all_metrics:
                                 all_metrics[key] = []
