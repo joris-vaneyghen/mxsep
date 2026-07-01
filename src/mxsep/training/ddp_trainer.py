@@ -58,6 +58,7 @@ class DDPTrainer:
             self.scaler = GradScaler()
 
         if cfg.dataset.train.predefined_jsonl_path:
+            self.multiple_predefined_mixes = Path(cfg.dataset.train.predefined_jsonl_path).suffix != ".jsonl"
 
             if self.spectrogram_mode:
                 self.train_dataset = PredefinedMixDataset(cfg.dataset, split='train', stft_cfg=cfg.model.stft)
@@ -65,7 +66,7 @@ class DDPTrainer:
             else:
                 self.train_dataset = PredefinedMixDataset(cfg.dataset, split='train')
 
-            shuffle = Path(cfg.dataset.train.predefined_jsonl_path).suffix == '.jsonl'  # if single json file per epoch we should shuffle.
+            shuffle = not(self.multiple_predefined_mixes) # if single json file per epoch we should shuffle.
             sampler = DistributedSampler(dataset=self.train_dataset, shuffle=shuffle, seed=self.seed,  drop_last=True)
             self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=False, sampler=sampler, pin_memory=True,
                                            num_workers=cfg.training.num_workers)
@@ -151,8 +152,15 @@ class DDPTrainer:
 
     def train_epoch(self) -> dict[str, float] | None:
         """Train for one epoch"""
-        self.train_dataset.init_epoch(self.epoch)  # Load new mixes for this epoch
-        self.train_loader.sampler.set_epoch(self.epoch)
+        if self.multiple_predefined_mixes:
+            self.train_dataset.init_epoch(self.epoch)  # Load new mixes for this epoch
+            # reset sampler to allow variable dataset lengths
+            self.train_loader.sampler = DistributedSampler(
+                dataset=self.train_dataset, shuffle=False, drop_last=True
+            )
+        else:
+            self.train_loader.sampler.set_epoch(self.epoch)
+
         self.model.train()
         epoch_loss = 0.0
         steps = 0
