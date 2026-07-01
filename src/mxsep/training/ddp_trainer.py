@@ -298,7 +298,7 @@ class DDPTrainer:
                     all_losses = None
 
                 dist.gather(outputs, gather_list=all_outputs, dst=0)
-                dist.gather(outputs, gather_list=all_y, dst=0)
+                dist.gather(y, gather_list=all_y, dst=0)
                 dist.gather(loss, gather_list=all_losses, dst=0)
 
                 if self.rank == 0:
