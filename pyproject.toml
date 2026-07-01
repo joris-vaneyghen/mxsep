@@ -36,7 +36,8 @@ dependencies = [
     "audiomentations",
     "einops",
     "kaggle",
-    "kagglehub"
+    "kagglehub",
+    "dotenv"
 ]
 
 #[project.optional-dependencies]
