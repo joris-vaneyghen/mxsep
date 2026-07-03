@@ -1,5 +1,4 @@
 # see example https://github.com/pytorch/examples/blob/main/distributed/ddp-tutorial-series/multigpu_torchrun.py
-import math
 import random
 import time
 from pathlib import Path
@@ -68,7 +67,7 @@ class DDPTrainer:
             shuffle = not(self.multiple_predefined_mixes) # if single json file per epoch we should shuffle.
             sampler = DistributedSampler(dataset=self.train_dataset, shuffle=shuffle, seed=self.seed,  drop_last=True)
             self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=False, sampler=sampler, pin_memory=True,
-                                           num_workers=cfg.training.num_workers)
+                                           num_workers=cfg.training.num_workers,  drop_last=True)
         else:
             raise NotImplementedError("Only predefined mix dataset is implemented for now")
 
@@ -175,6 +174,8 @@ class DDPTrainer:
 
             x = x.to(self.device)
 
+            self.optimizer.zero_grad()
+
             # Forward pass with mixed precision
             with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
                 pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
@@ -187,8 +188,6 @@ class DDPTrainer:
                 assert pred.shape == y.shape
                 loss = self.loss_fn(pred, y)
             # Backward pass
-            self.optimizer.zero_grad()
-
             if self.use_amp and self.device.type == 'cuda':
                 self.scaler.scale(loss).backward()
 
@@ -222,14 +221,7 @@ class DDPTrainer:
             steps += 1
             self.global_step += 1
                 
-            dist.reduce(loss, dst=0, op=dist.ReduceOp.AVG)
-
-            # Logging
-            # if self.global_step % self.monitor.log_metrics_interval == 0:
-            #     metrics = self._compute_metrics(outputs, outputs, y)
-            # else :
-            #     metrics = {}
-
+            # dist.reduce(loss, dst=0, op=dist.ReduceOp.AVG)
 
             if self.rank == 0:
                 batch_loss = loss.item()
@@ -244,15 +236,6 @@ class DDPTrainer:
                     ],  # or self.optimizer.defaults['lr'],
                 }
                 self.monitor.log_step(metrics, self.epoch, batch_idx)
-
-
-            # # Save checkpoint
-            # if self.global_step % self.config.save_interval == 0:
-            #     self._save_checkpoint()
-
-            # Debug memory
-            # if self.memory_debugger:
-            #     self.memory_debugger.snapshot(self.global_step)
 
         if self.rank == 0:
             # Calculate epoch averages
@@ -311,7 +294,7 @@ class DDPTrainer:
 
                 if self.rank == 0:
                     for (output, y, loss) in zip(all_outputs, all_y, all_losses):
-                        metrics = self._compute_metrics(outputs, y)
+                        metrics = self._compute_metrics(output, y)
                         metrics = {f'val_{k}':v for k, v in metrics.items()}
                         val_loss = loss.item()
                         metrics["val_loss"] = val_loss
@@ -344,58 +327,6 @@ class DDPTrainer:
         else :
             return None
 
-    # def _prepare_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-    #     """Prepare batch for training"""
-    #     # Move mix to device
-    #     batch['mix'] = batch['mix'].to(self.device)
-    #
-    #     # Move each source to device
-    #     for source_name in batch['sources']:
-    #         batch['sources'][source_name] = batch['sources'][source_name].to(self.device)
-    #
-    #     return batch
-
-    # def _compute_loss(
-    #         self,
-    #         outputs: Dict[str, torch.Tensor],
-    #         targets: Dict[str, torch.Tensor]
-    # ) -> torch.Tensor:
-    #     """Compute loss function"""
-    #     loss = 0.0
-    #
-    #     for source_name in outputs:
-    #         if source_name in targets:
-    #             # Waveform loss
-    #             if self.config.waveform_loss_weight > 0:
-    #                 if self.config.loss_function == 'l1':
-    #                     wave_loss = torch.nn.functional.l1_loss(
-    #                         outputs[source_name], targets[source_name]
-    #                     )
-    #                 elif self.config.loss_function == 'l2':
-    #                     wave_loss = torch.nn.functional.mse_loss(
-    #                         outputs[source_name], targets[source_name]
-    #                     )
-    #                 elif self.config.loss_function == 'si-sdr':
-    #                     wave_loss = -calculate_sisdr(
-    #                         outputs[source_name], targets[source_name]
-    #                     ).mean()
-    #                 else:
-    #                     wave_loss = torch.tensor(0.0, device=self.device)
-    #
-    #                 loss += self.config.waveform_loss_weight * wave_loss
-    #
-    #             # STFT loss (if model outputs spectrograms)
-    #             if self.config.stft_loss_weight > 0 and hasattr(self.model, 'stft'):
-    #                 with autocast(enabled=False):
-    #                     output_spec = self.model.stft(outputs[source_name])
-    #                     target_spec = self.model.stft(targets[source_name])
-    #                     stft_loss = torch.nn.functional.l1_loss(
-    #                         output_spec, target_spec
-    #                     )
-    #                     loss += self.config.stft_loss_weight * stft_loss
-    #
-    #     return loss
-
     def _compute_metrics(
             self,
             outputs: torch.Tensor,
@@ -406,11 +337,6 @@ class DDPTrainer:
 
         sdr = calculate_sdr(outputs, targets, self.target_sources)
         metrics = {**sdr}
-
-
-        # SI-SDR
-        # sisdr = calculate_sisdr(outputs[source_name], targets[source_name])
-        # metrics[f'{source_name}_sisdr'] = sisdr.mean().item()
 
         return metrics
 
@@ -477,5 +403,3 @@ class DDPTrainer:
                 if left < self.last_run:
                     break
 
-            # Save epoch checkpoint
-            # self._save_checkpoint(f'epoch_{epoch}.pt')
