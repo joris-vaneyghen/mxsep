@@ -6,6 +6,7 @@ from typing import Dict, Any
 import hydra
 import numpy as np
 import torch
+from torch import Tensor
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -220,11 +221,12 @@ class DDPTrainer:
             # Update trackers
             steps += 1
             self.global_step += 1
-                
-            # dist.reduce(loss, dst=0, op=dist.ReduceOp.AVG)
+
+            loss = loss.detach()
+            dist.reduce(loss, dst=0, op=dist.ReduceOp.SUM)
 
             if self.rank == 0:
-                batch_loss = loss.item()
+                batch_loss = loss.item() / self.world_size
                 epoch_loss += batch_loss
                 metrics = {
                     "batch_idx": batch_idx,
@@ -293,11 +295,10 @@ class DDPTrainer:
                 dist.gather(loss, gather_list=all_losses, dst=0)
 
                 if self.rank == 0:
-                    for (output, y, loss) in zip(all_outputs, all_y, all_losses):
-                        metrics = self._compute_metrics(output, y)
+                    for (_outputs, _y, _loss) in zip(all_outputs, all_y, all_losses):
+                        metrics = self._compute_metrics(_outputs, _y)
                         metrics = {f'val_{k}':v for k, v in metrics.items()}
-                        val_loss = loss.item()
-                        metrics["val_loss"] = val_loss
+                        metrics["val_loss"] = _loss.item()
                         for key, value in metrics.items():
                             if key not in all_metrics:
                                 all_metrics[key] = []
