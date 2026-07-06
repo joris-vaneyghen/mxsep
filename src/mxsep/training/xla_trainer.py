@@ -30,7 +30,7 @@ class XLATrainer:
         self.rank = rank
         self.world_size = world_size
 
-        assert cfg.training.device == 'cuda'
+        assert cfg.training.device == 'xla'
         assert torch.cuda.is_available()
 
         self.device = torch_xla.device()
