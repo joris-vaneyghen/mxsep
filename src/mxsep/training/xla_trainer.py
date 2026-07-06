@@ -31,7 +31,6 @@ class XLATrainer:
         self.world_size = world_size
 
         assert cfg.training.device == 'xla'
-        assert torch.cuda.is_available()
 
         self.device = torch_xla.device()
 
@@ -135,10 +134,7 @@ class XLATrainer:
         # PyTorch random
         torch.manual_seed(self.seed)
 
-        # If using CUDA
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(self.seed)
-            torch.cuda.manual_seed_all(self.seed)  # for multi-GPU
+        # todo seed xla (~torch.cuda.manual_seed)
 
         # Optional: make CuDNN deterministic (slower but reproducible)
         if self.deterministic:
