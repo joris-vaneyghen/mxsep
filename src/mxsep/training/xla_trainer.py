@@ -149,11 +149,9 @@ class XLATrainer:
             # Load new mixes for this epoch
             self.train_dataset.init_epoch(self.epoch)
             # reset sampler to allow variable dataset lengths
-            num_samples = len(self.train_dataset) // self.world_size
-            self.train_loader.sampler.num_samples = num_samples
-            self.train_loader.sampler.total_size = num_samples  * self.world_size
-        else:
-            self.train_loader.sampler.set_epoch(self.epoch)
+            # num_samples = len(self.train_dataset) // self.world_size
+            # self.train_loader.sampler.num_samples = num_samples
+            # self.train_loader.sampler.total_size = num_samples  * self.world_size
 
         self.model.train()
         epoch_loss = 0.0
