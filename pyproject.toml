@@ -64,6 +64,7 @@ mxsep-model-info = "mxsep.cli.model_info:run"
 mxsep-generate-mixes = "mxsep.cli.generate_mixes:run"
 mxsep-train = "mxsep.cli.train:run"
 mxsep-train-ddp = "mxsep.cli.train_ddp:run"
+mxsep-train-xla = "mxsep.cli.train_xla:run"
 mxsep-validate = "mxsep.cli.validate:run"
 mxsep-inference = "mxsep.cli.inference:run"
 
