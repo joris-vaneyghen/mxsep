@@ -309,7 +309,7 @@ class TrainingConfig:
     optimizer: dict = field(default_factory=dict)
     lr_scheduler: Optional[dict] = None
     loss: dict = field(default_factory=dict)
-    mus_sep_loss_domain: MusSepLossDomain = MusSepLossDomain.time_domain
+    mus_sep_loss_domain: MusSepLossDomain = MusSepLossDomain.time_domain #todo not used for this moment
     epochs: int = 100
     use_amp: bool = True
     gradient_clip: Optional[float] = None

@@ -1,25 +1,26 @@
-# see example https://github.com/pytorch/examples/blob/main/distributed/ddp-tutorial-series/multigpu_torchrun.py
+# see https://github.com/pytorch/xla/blob/master/test/test_train_mp_mnist_amp.py
+# turorial https://docs.pytorch.org/xla/release/r2.8/learn/pytorch-on-xla-devices.html#running-on-multiple-xla-devices-with-multi-processing
 import random
 import time
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
 import hydra
 import numpy as np
 import torch
-from torch import Tensor
-from torch.amp import GradScaler, autocast
+import torch_xla
+import torch_xla.core.xla_model as xm
+import torch_xla.distributed.parallel_loader as pl
+from torch_xla.amp import autocast
 from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
-from torch.nn.parallel import DistributedDataParallel as DDP
-import torch.distributed as dist
+
 from mxsep.cfg import Config
 from mxsep.data.dataset import PredefinedMixDataset
 from mxsep.models import ISTFTModule, MusicSourceSeparationModel
 from mxsep.training import Monitor
-from mxsep.utils.metrics import calculate_sdr
 
 
-class DDPTrainer:
+class XLATrainer:
     """Main training class"""
 
     def __init__(self, rank: int, world_size: int, cfg: Config):
@@ -32,7 +33,7 @@ class DDPTrainer:
         assert cfg.training.device == 'cuda'
         assert torch.cuda.is_available()
 
-        self.device = torch.device(f'cuda:{self.rank}')
+        self.device = torch_xla.device()
 
 
         if cfg.training.max_runtime:
@@ -53,8 +54,6 @@ class DDPTrainer:
 
         self.checkpoint_dir = Path(cfg.training.checkpoint_dir)
 
-        if self.use_amp:
-            self.scaler = GradScaler()
 
         if cfg.dataset.train.predefined_jsonl_path:
             self.multiple_predefined_mixes = Path(cfg.dataset.train.predefined_jsonl_path).suffix != ".jsonl"
@@ -66,9 +65,9 @@ class DDPTrainer:
                 self.train_dataset = PredefinedMixDataset(cfg.dataset, split='train')
 
             shuffle = not(self.multiple_predefined_mixes) # if single json file per epoch we should shuffle.
-            sampler = DistributedSampler(dataset=self.train_dataset, shuffle=shuffle, seed=self.seed,  drop_last=True)
-            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=False, sampler=sampler, pin_memory=True,
+            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=shuffle, pin_memory=True,
                                            num_workers=cfg.training.num_workers,  drop_last=True)
+            self.train_loader = pl.MpDeviceLoader(self.train_loader, self.device)
         else:
             raise NotImplementedError("Only predefined mix dataset is implemented for now")
 
@@ -85,9 +84,9 @@ class DDPTrainer:
                 else:
                     self.validation_dataset = PredefinedMixDataset(cfg.dataset, split='validation')
 
-                sampler = DistributedSampler(dataset=self.validation_dataset, shuffle=False, seed=self.seed,  drop_last=True)
-                self.validation_loader = DataLoader(self.validation_dataset, sampler=sampler, batch_size=cfg.training.batch_size, shuffle=False,
+                self.validation_loader = DataLoader(self.validation_dataset, batch_size=cfg.training.batch_size, shuffle=False,
                                                num_workers=cfg.training.num_workers, drop_last=True)
+                self.validation_loader = pl.MpDeviceLoader(self.validation_loader, self.device)
             else:
                 raise NotImplementedError("Only predefined mix dataset is implemented for now")
         else:
@@ -98,6 +97,7 @@ class DDPTrainer:
 
         self.model = MusicSourceSeparationModel(cfg.model)
         self.model.to(self.device)
+        xm.broadcast_master_param(self.model)
         
         self.optimizer: torch.optim.Optimizer = hydra.utils.instantiate(cfg.training.optimizer, _partial_=True)(params=self.model.parameters())
         if cfg.training.lr_scheduler:
@@ -109,17 +109,15 @@ class DDPTrainer:
         # Trackers
         self.epoch = 0
         self.global_step = 0
-        self.best_metric = float("-inf") # todo if metric = sdr then -inf else +inf
+        self.best_metric = float("inf") # todo if metric = sdr then +inf else -inf
 
         if cfg.training.resume_from_checkpoint:
             self._load_checkpoint(cfg.training.resume_from_checkpoint)
             self.epoch += 1
 
-        self.model = DDP(self.model, device_ids=[self.rank])
-
         self.loss_fn = hydra.utils.instantiate(cfg.training.loss)
 
-        if self.rank == 0:
+        if xm.is_master_ordinal():
             self.monitor = Monitor(cfg)
             self.monitor.global_step = self.global_step
 
@@ -147,13 +145,13 @@ class DDPTrainer:
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
-        print(f"Randomizer initialized with seed: {self.seed}")
+        xm.master_print(f"Randomizer initialized with seed: {self.seed}")
 
     def train_epoch(self) -> dict[str, float] | None:
         """Train for one epoch"""
         if self.multiple_predefined_mixes:
             # Load new mixes for this epoch
-            self.train_dataset.init_epoch(self.epoch)  
+            self.train_dataset.init_epoch(self.epoch)
             # reset sampler to allow variable dataset lengths
             num_samples = len(self.train_dataset) // self.world_size
             self.train_loader.sampler.num_samples = num_samples
@@ -178,7 +176,7 @@ class DDPTrainer:
             self.optimizer.zero_grad()
 
             # Forward pass with mixed precision
-            with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
+            with autocast(self.device):
                 pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
                 # loss = self.loss_fn(torch.view_as_real(pred).contiguous(), torch.view_as_real(y).contiguous() )
                 if self.spectrogram_mode:
@@ -189,30 +187,17 @@ class DDPTrainer:
                 assert pred.shape == y.shape
                 loss = self.loss_fn(pred, y)
             # Backward pass
-            if self.use_amp and self.device.type == 'cuda':
-                self.scaler.scale(loss).backward()
 
-                # Gradient clipping (see https://docs.pytorch.org/docs/main/notes/amp_examples.html#gradient-clipping)
-                if self.gradient_clip is not None:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.model.parameters(),
-                        self.gradient_clip
-                    )
+            loss.backward()
 
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                loss.backward()
+            # Gradient clipping
+            if self.gradient_clip is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(),
+                    self.gradient_clip
+            )
 
-                # Gradient clipping
-                if self.gradient_clip is not None:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.model.parameters(),
-                        self.gradient_clip
-                    )
-
-                self.optimizer.step()
+            xm.optimizer_step(self.optimizer)
 
             # Update scheduler
             if self.lr_scheduler is not None:
@@ -221,12 +206,11 @@ class DDPTrainer:
             # Update trackers
             steps += 1
             self.global_step += 1
+                
+            batch_loss =  loss.item()
+            batch_loss = xm.mesh_reduce("batch_loss", batch_loss, np.mean)
 
-            loss = loss.detach()
-            dist.reduce(loss, dst=0, op=dist.ReduceOp.SUM)
-
-            if self.rank == 0:
-                batch_loss = loss.item() / self.world_size
+            if xm.is_master_ordinal():
                 epoch_loss += batch_loss
                 metrics = {
                     "batch_idx": batch_idx,
@@ -239,7 +223,16 @@ class DDPTrainer:
                 }
                 self.monitor.log_step(metrics, self.epoch, batch_idx)
 
-        if self.rank == 0:
+
+            # # Save checkpoint
+            # if self.global_step % self.config.save_interval == 0:
+            #     self._save_checkpoint()
+
+            # Debug memory
+            # if self.memory_debugger:
+            #     self.memory_debugger.snapshot(self.global_step)
+
+        if xm.is_master_ordinal():
             # Calculate epoch averages
             avg_loss = epoch_loss / steps
             return {'avg_loss': avg_loss}
@@ -266,44 +259,15 @@ class DDPTrainer:
                 x = x.to(self.device)
                 y = y.to(self.device)
 
-                with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
+                with autocast(self.device):
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss = self.loss_fn(outputs, y)
                 
-                # Compute metrics
-                if self.spectrogram_mode:
-                    outputs = self.istft(outputs.detach().cpu())
-                    y = y_waveform
+                val_loss = loss.item()
+                val_loss = xm.mesh_reduce("val_loss", val_loss, np.mean)
 
-                if self.rank == 0:
-                    all_outputs = [
-                        torch.zeros_like(outputs, device=self.device) for i in range(self.world_size)
-                    ]
-                    all_y  = [
-                        torch.zeros_like(y, device=self.device) for i in range(self.world_size)
-                    ]
-                    all_losses = [
-                        torch.zeros_like(loss, device=self.device) for i in range(self.world_size)
-                    ]
-                else:
-                    all_outputs = None
-                    all_y = None
-                    all_losses = None
-
-                dist.gather(outputs, gather_list=all_outputs, dst=0)
-                dist.gather(y, gather_list=all_y, dst=0)
-                dist.gather(loss, gather_list=all_losses, dst=0)
-
-                if self.rank == 0:
-                    for (_outputs, _y, _loss) in zip(all_outputs, all_y, all_losses):
-                        metrics = self._compute_metrics(_outputs, _y)
-                        metrics = {f'val_{k}':v for k, v in metrics.items()}
-                        metrics["val_loss"] = _loss.item()
-                        for key, value in metrics.items():
-                            if key not in all_metrics:
-                                all_metrics[key] = []
-                            all_metrics[key].append(value)
-
+                if xm.is_master_ordinal():
+                    all_metrics["val_loss"].append(val_loss)
                     avg_metrics = {k: sum(v) / len(v) for k, v in all_metrics.items()}
                     data = {
                         **avg_metrics,
@@ -312,12 +276,12 @@ class DDPTrainer:
                     self.monitor.log_data(data)
 
 
-        if self.rank == 0:
+        if xm.is_master_ordinal():
             # Average metrics
             avg_metrics = {k: sum(v) / len(v) for k, v in all_metrics.items()}
 
             # Save best model
-            if avg_metrics['val_sdr'] > self.best_metric: #todo if not sdr then '<'
+            if avg_metrics['val_loss'] < self.best_metric: #todo if sdr then '>'
                 self.best_metric = avg_metrics['val_sdr']
                 self._save_checkpoint('best_model.pt')
     
@@ -328,25 +292,11 @@ class DDPTrainer:
         else :
             return None
 
-    def _compute_metrics(
-            self,
-            outputs: torch.Tensor,
-            targets: torch.Tensor,
-    ) -> Dict[str, float]:
-        """Compute evaluation metrics"""
-        metrics = {}
-
-        sdr = calculate_sdr(outputs, targets, self.target_sources)
-        metrics = {**sdr}
-
-        return metrics
-
-
     def _load_checkpoint(self, filename):
         """Load model checkpoint"""
         checkpoint_path = Path(self.checkpoint_dir) / filename
         if not checkpoint_path.exists():
-            print(f"Checkpoint {filename} not found, starting from scratch.")
+            xm.master_print(f"Checkpoint {filename} not found, starting from scratch.")
             return
 
         checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
@@ -358,7 +308,7 @@ class DDPTrainer:
         self.global_step = checkpoint['global_step']
         self.best_metric = checkpoint.get('best_metric', float('inf'))
 
-        print(f"Loaded checkpoint {filename} (epoch {self.epoch}, global step {self.global_step})")
+        xm.master_print(f"Loaded checkpoint {filename} (epoch {self.epoch}, global step {self.global_step})")
 
 
     def _save_checkpoint(self, filename: str = 'checkpoint.pt'):
@@ -369,15 +319,16 @@ class DDPTrainer:
         checkpoint = {
             'epoch': self.epoch,
             'global_step': self.global_step,
-            'model_state_dict': self.model.module.state_dict(),
+            'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             # 'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
             'best_metric': self.best_metric,
-            'config': self.model.module.config,
+            'config': self.model.config,
         }
-        print(f"Save checkpoint {filename}")
+        xm.master_print(f"Save checkpoint {filename}")
 
-        torch.save(checkpoint, checkpoint_dir / filename)
+        xm.save(checkpoint, checkpoint_dir / filename)
+        # or xser.save(checkpoint, checkpoint_dir / filename)
 
     def train(self):
         """Main training loop"""
@@ -392,7 +343,7 @@ class DDPTrainer:
             val_metrics = self.validate()
 
             # Print summary
-            if self.rank == 0:
+            if xm.is_master_ordinal():
                 self.monitor.log_epoch_summary(
                     train_metrics, val_metrics, self.epoch
                 )
@@ -404,3 +355,5 @@ class DDPTrainer:
                 if left < self.last_run:
                     break
 
+            # Save epoch checkpoint
+            # self._save_checkpoint(f'epoch_{epoch}.pt')

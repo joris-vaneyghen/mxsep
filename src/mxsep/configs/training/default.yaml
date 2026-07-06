@@ -9,7 +9,7 @@ stft_device: cuda
 #lr_scheduler:
 #  step_size: 10
 #  gamma: 0.2
-mus_sep_loss_domain: tf_domain
+mus_sep_loss_domain: time_domain
 epochs: 100
 batch_size: 4
 checkpoint_interval: 10

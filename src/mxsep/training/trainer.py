@@ -161,6 +161,8 @@ class Trainer:
 
             x = x.to(self.device)
 
+            self.optimizer.zero_grad()
+
             # Forward pass with mixed precision
             with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
                 pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
@@ -173,7 +175,6 @@ class Trainer:
                 assert pred.shape == y.shape
                 loss = self.loss_fn(pred, y)
             # Backward pass
-            self.optimizer.zero_grad()
 
             if self.use_amp and self.device.type == 'cuda':
                 self.scaler.scale(loss).backward()
