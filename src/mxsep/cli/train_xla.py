@@ -46,7 +46,7 @@ def run(cfg: Config):
 
     print(OmegaConf.to_yaml(cfg_dict))
 
-    torch_xla.launch(_mp_fn, args=(cfg))
+    torch_xla.launch(_mp_fn, args=(cfg,))
 
 
 if __name__ == "__main__":
