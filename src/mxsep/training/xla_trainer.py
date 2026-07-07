@@ -172,14 +172,14 @@ class XLATrainer:
             # Forward pass with mixed precision
             with autocast(self.device):
                 pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
-                # loss = self.loss_fn(torch.view_as_real(pred).contiguous(), torch.view_as_real(y).contiguous() )
-                if self.spectrogram_mode:
-                    pred = pred.cpu()
-                    pred = self.istft(pred)
-                    y = y_waveform
+                loss = self.loss_fn(torch.view_as_real(pred).contiguous(), torch.view_as_real(y).contiguous() )
+                # if self.spectrogram_mode:
+                #     pred = pred.cpu()
+                #     pred = self.istft(pred)
+                #     y = y_waveform
 
-                assert pred.shape == y.shape
-                loss = self.loss_fn(pred, y)
+                # assert pred.shape == y.shape
+                # loss = self.loss_fn(pred, y)
             # Backward pass
 
             loss.backward()
