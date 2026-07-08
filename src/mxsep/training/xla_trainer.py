@@ -1,5 +1,6 @@
 # see https://github.com/pytorch/xla/blob/master/test/test_train_mp_mnist_amp.py
 # turorial https://docs.pytorch.org/xla/release/r2.8/learn/pytorch-on-xla-devices.html#running-on-multiple-xla-devices-with-multi-processing
+import os
 import random
 import time
 from pathlib import Path
@@ -34,6 +35,8 @@ class XLATrainer:
 
         self.device = torch_xla.device()
 
+        if os.environ.get('XLA_EAGER_MODE', default=0):
+            torch_xla.experimental.eager_mode(True)
 
         if cfg.training.max_runtime:
             self.start_time = time.time()
