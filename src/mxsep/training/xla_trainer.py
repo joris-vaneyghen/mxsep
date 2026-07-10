@@ -67,7 +67,7 @@ class XLATrainer:
                 self.train_dataset = PredefinedMixDataset(cfg.dataset, split='train')
 
             shuffle = not(self.multiple_predefined_mixes) # if single json file per epoch we should shuffle.
-            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=shuffle, pin_memory=True,
+            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=shuffle, pin_memory=False,
                                            num_workers=cfg.training.num_workers,  drop_last=True)
             self.train_loader = pl.MpDeviceLoader(self.train_loader, self.device)
         else:
@@ -172,7 +172,12 @@ class XLATrainer:
             # Forward pass with mixed precision
             with autocast(self.device):
                 pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
-                loss = self.loss_fn(torch.view_as_real(pred).contiguous(), torch.view_as_real(y).contiguous() )
+                if y.is_complex() and pred.is_complex():
+                    # loss = self.loss_fn(torch.view_as_real(pred).contiguous(), torch.view_as_real(y).contiguous() )
+                    loss = self.loss_fn(pred.real, y.real) + self.loss_fn(pred.imag, y.imag)
+                else:
+                    loss = self.loss_fn(pred, y)
+
                 # if self.spectrogram_mode:
                 #     pred = pred.cpu()
                 #     pred = self.istft(pred)
@@ -253,7 +258,10 @@ class XLATrainer:
 
                 with autocast(self.device):
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
-                    loss = self.loss_fn(outputs, y)
+                    if y.is_complex() and outputs.is_complex():
+                        loss = self.loss_fn(outputs.real, y.real) + self.loss_fn(outputs.imag, y.imag)
+                    else:
+                        loss= self.loss_fn(outputs, y)
                 
                 val_loss = loss.item()
                 val_loss = xm.mesh_reduce("val_loss", val_loss, np.mean)
