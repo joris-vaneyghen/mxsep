@@ -251,9 +251,6 @@ class XLATrainer:
                 else:
                     (x, y) = batch
 
-                x = x.to(self.device)
-                y = y.to(self.device)
-
                 with autocast(self.device):
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss = self.loss_fn(outputs, y)
