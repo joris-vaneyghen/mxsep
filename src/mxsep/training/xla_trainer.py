@@ -166,9 +166,6 @@ class XLATrainer:
                 (x, y, y_waveform) = batch
             else:
                 (x, y) = batch
-                y = y.to(self.device)
-
-            x = x.to(self.device)
 
             self.optimizer.zero_grad()
 
@@ -245,7 +242,8 @@ class XLATrainer:
         val_loss = 0.0
         all_metrics = {}
 
-        with torch.inference_mode():
+        with torch.no_grad():
+        # with torch.inference_mode():
             for batch_idx, batch in enumerate(self.validation_loader):
                 # Move to device
                 if self.spectrogram_mode:
