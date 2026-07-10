@@ -54,6 +54,8 @@ class MusicSourceSeparationModel(nn.Module):
         """
 
         x = einops.rearrange(x, 'b (s c r) f t -> b s c f t r', r=2, c=self.channels)
+        if x.dtype == torch.bfloat16:
+            x = x.to(dtype=torch.float32)
         z = torch.view_as_complex(x.contiguous())
         return z
 
