@@ -35,29 +35,25 @@ class MusicSourceSeparationModel(nn.Module):
         """
         Convert complex spectrogram to real with complex values as channels
         Args:
-            z: Complex spectrogram with shape [batch, channel, freq_bins, time_frames]
+            z: Complex spectrogram with shape [batch, channel, freq_bins, time_frames, real_imag]
         Returns:
-            x: Real spectrogram with shape [batch, channel x 2 , freq_bins, time_frames]
+            x: Real spectrogram with shape [batch, channel x real_imag , freq_bins, time_frames]
         """
 
-        x = torch.view_as_real(z)
-        x = einops.rearrange(x, 'b c f t r -> b (c r) f t')
+        x = einops.rearrange(z, 'b c f t r -> b (c r) f t')
         return x
 
     def channels_as_complex(self, x: Tensor) -> Tensor:
         """
         Convert channels to complex spectrogram.
         Args:
-            x: Real spectrogram with shape [batch,  channel x sources x 2 , freq_bins, time_frames]
+            x: Real spectrogram with shape [batch,  channel x sources x real_imag , freq_bins, time_frames]
         Returns:
-            z: Complex spectrogram with shape [batch, sources, channel, freq_bins, time_frames]
+            z: Complex spectrogram with shape [batch, sources, channel, freq_bins, time_frames, real_imag]
         """
 
         x = einops.rearrange(x, 'b (s c r) f t -> b s c f t r', r=2, c=self.channels)
-        if x.dtype == torch.bfloat16:
-            x = x.to(dtype=torch.float32)
-        z = torch.view_as_complex(x.contiguous())
-        return z
+        return x
 
     def reconstruct_phase(self, out: Tensor, z_in: Tensor) -> Tensor:
         """ Reconstruct phase from input spectrogram and apply it to the output magnitude """

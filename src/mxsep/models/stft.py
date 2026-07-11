@@ -15,7 +15,7 @@ class STFTModule(nn.Module):
         self.n_fft = config.n_fft
         self.hop_length = config.hop_length
         self.win_length = config.win_length
-        self.window = torch.hann_window(config.win_length)
+        self.window = torch.hann_window(config.win_length) # todo if config.window == 'hann' else
         self.keep_freq_bins = config.keep_freq_bins
 
         # Validate that we're not trying to keep more bins than available
@@ -36,7 +36,7 @@ class STFTModule(nn.Module):
             waveform: Input waveform with shape [batch, channels, time] or [batch, sources, channels, time]
 
         Returns:
-            Spectrogram (Complex) with shape [batch, channels, freq_bins, time_frames] or [batch, sources, channels, freq_bins, time_frames]
+            Spectrogram with shape [batch, channels, freq_bins, time_frames, real_imag] or [batch, sources, channels, freq_bins, time_frames, real_imag]
 
         """
         if waveform.dim() not in [3, 4]:
@@ -81,6 +81,7 @@ class STFTModule(nn.Module):
                                  b=batch,
                                  c=channels)
 
+        x = torch.view_as_real(x)
         return x
 
 
@@ -120,15 +121,18 @@ class ISTFTModule(nn.Module):
         Compute inverse STFT (ISTFT)
 
         Args:
-            spectrogram: (Complex) with shape [batch, channels, freq_bins, time_frames] or [batch, sources, channels, freq_bins, time_frames]
+            spectrogram: Tensor with shape [batch, channels, freq_bins, time_frames, real_imag] or [batch, sources, channels, freq_bins, time_frames, real_imag]
             length: Optional output length for the time dimension
 
         Returns:
             Waveform with shape [batch, channels, time] or [batch, sources, channels, time]
         """
-        if spectrogram.dim() not in [4, 5]:
+        if spectrogram.dim() not in [5, 6]:
             raise ValueError(f"Expected 4D or 5D input, got {spectrogram.dim()}D")
-
+        
+        if spectrogram.dtype == torch.bfloat16:
+            spectrogram = spectrogram.to(dtype=torch.float32)
+        spectrogram = torch.view_as_complex(spectrogram.contiguous())
 
         if spectrogram.dim() == 5:
             batch, sources, channels, freq_bins, time_frames = spectrogram.shape

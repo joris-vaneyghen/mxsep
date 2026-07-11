@@ -172,11 +172,7 @@ class XLATrainer:
             # Forward pass with mixed precision
             with autocast(self.device):
                 pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
-                if y.is_complex() and pred.is_complex():
-                    # loss = self.loss_fn(torch.view_as_real(pred).contiguous(), torch.view_as_real(y).contiguous() )
-                    loss = self.loss_fn(pred.real, y.real) + self.loss_fn(pred.imag, y.imag)
-                else:
-                    loss = self.loss_fn(pred, y)
+                loss = self.loss_fn(pred, y)
 
                 # if self.spectrogram_mode:
                 #     pred = pred.cpu()
@@ -258,10 +254,7 @@ class XLATrainer:
 
                 with autocast(self.device):
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
-                    if y.is_complex() and outputs.is_complex():
-                        loss = self.loss_fn(outputs.real, y.real) + self.loss_fn(outputs.imag, y.imag)
-                    else:
-                        loss= self.loss_fn(outputs, y)
+                    loss= self.loss_fn(outputs, y)
                 
                 val_loss = loss.item()
                 val_loss = xm.mesh_reduce("val_loss", val_loss, np.mean)
