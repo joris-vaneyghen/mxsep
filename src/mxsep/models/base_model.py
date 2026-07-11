@@ -75,8 +75,8 @@ class MusicSourceSeparationModel(nn.Module):
         Returns: Output tensor (separated sources in waveform or spectrogram depending on config)
         """
         if spectrogram_mode:
-            if input.dim() != 4:
-                raise ValueError(f"Expected 4D input, got {input.dim()}D")
+            if input.dim() != 5:
+                raise ValueError(f"Expected 5D input, got {input.dim()}D")
         else:
             if input.dim() != 3:
                 raise ValueError(f"Expected 3D input, got {input.dim()}D")
@@ -86,7 +86,7 @@ class MusicSourceSeparationModel(nn.Module):
         if self.complex_to_real == 'as_channels':
             x = self.complex_as_channels(z_in)
         elif self.complex_to_real == 'as_magnitude':
-            x = z_in.abs()
+            x = z_in.abs() #todo
         else:
             raise ValueError(f"Expected complex_to_real = 'as_magnitude' or 'as_channels', got {self.complex_to_real}")
 
@@ -98,7 +98,7 @@ class MusicSourceSeparationModel(nn.Module):
         if self.complex_to_real == 'as_channels':
             x = self.channels_as_complex(x)
         elif self.complex_to_real == 'as_magnitude':
-            x = self.reconstruct_phase(x, z_in)
+            x = self.reconstruct_phase(x, z_in) #todo
         else:
             raise ValueError(f"Expected complex_to_real = 'as_magnitude' or 'as_channels', got {self.complex_to_real}")
 
