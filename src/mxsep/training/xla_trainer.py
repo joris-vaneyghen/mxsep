@@ -68,7 +68,7 @@ class XLATrainer:
                 self.train_dataset = PredefinedMixDataset(cfg.dataset, split='train')
 
             shuffle = not(self.multiple_predefined_mixes)  # if single json file per epoch we should shuffle.
-            sampler = DistributedSampler(
+            self.train_sampler = DistributedSampler(
                 dataset=self.train_dataset,
                 num_replicas=self.world_size,
                 rank=self.rank,
@@ -76,7 +76,7 @@ class XLATrainer:
                 seed=self.seed,
                 drop_last=True,
             )
-            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=False, sampler=sampler, pin_memory=False,
+            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=False, sampler=self.train_sampler, pin_memory=False,
                                            num_workers=cfg.training.num_workers,  drop_last=True)
             self.train_loader = pl.MpDeviceLoader(self.train_loader, self.device)
 
@@ -185,10 +185,10 @@ class XLATrainer:
             self.train_dataset.init_epoch(self.epoch)
             # reset sampler to allow variable dataset lengths
             num_samples = len(self.train_dataset) // self.world_size
-            self.train_loader.sampler.num_samples = num_samples
-            self.train_loader.sampler.total_size = num_samples  * self.world_size
+            self.train_sampler.num_samples = num_samples
+            self.train_sampler.total_size = num_samples  * self.world_size
         else:
-            self.train_loader.sampler.set_epoch(self.epoch)
+            self.train_sampler.set_epoch(self.epoch)
 
         self.model.train()
         epoch_loss = 0.0
