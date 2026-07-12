@@ -13,6 +13,7 @@ import torch_xla
 import torch_xla.core.xla_model as xm
 import torch_xla.distributed.parallel_loader as pl
 from torch_xla.amp import autocast
+from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 
 from mxsep.cfg import Config
@@ -66,10 +67,25 @@ class XLATrainer:
             else:
                 self.train_dataset = PredefinedMixDataset(cfg.dataset, split='train')
 
-            shuffle = not(self.multiple_predefined_mixes) # if single json file per epoch we should shuffle.
-            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=shuffle, pin_memory=False,
+            shuffle = not(self.multiple_predefined_mixes)  # if single json file per epoch we should shuffle.
+            sampler = DistributedSampler(
+                dataset=self.train_dataset,
+                num_replicas=self.world_size,
+                rank=self.rank,
+                shuffle=shuffle,
+                seed=self.seed,
+                drop_last=True,
+            )
+            self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=cfg.training.batch_size, shuffle=False, sampler=sampler, pin_memory=False,
                                            num_workers=cfg.training.num_workers,  drop_last=True)
             self.train_loader = pl.MpDeviceLoader(self.train_loader, self.device)
+
+            if xm.is_master_ordinal():
+                xm.master_print(f"Dataset size: {len(self.train_dataset)}")
+                xm.master_print(f"World size: {self.world_size}")
+                xm.master_print(
+                    f"Expected steps per epoch: {len(self.train_dataset) // (self.world_size * cfg.training.batch_size)}"
+                )
         else:
             raise NotImplementedError("Only predefined mix dataset is implemented for now")
 
@@ -86,9 +102,25 @@ class XLATrainer:
                 else:
                     self.validation_dataset = PredefinedMixDataset(cfg.dataset, split='validation')
 
-                self.validation_loader = DataLoader(self.validation_dataset, batch_size=cfg.training.batch_size, shuffle=False,
-                                               num_workers=cfg.training.num_workers, drop_last=True)
-                self.validation_loader = pl.MpDeviceLoader(self.validation_loader, self.device)
+                sampler = DistributedSampler(
+                    dataset=self.validation_dataset,
+                    num_replicas=self.world_size,
+                    rank=self.rank,
+                    shuffle=False,
+                    seed=self.seed,
+                    drop_last=True,
+                )
+                self.validation_loader = DataLoader(
+                    self.validation_dataset,
+                    batch_size=cfg.training.batch_size,
+                    shuffle=False,
+                    sampler=sampler,
+                    num_workers=cfg.training.num_workers,
+                    drop_last=True,
+                )
+                self.validation_loader = pl.MpDeviceLoader(
+                    self.validation_loader, self.device
+                )
             else:
                 raise NotImplementedError("Only predefined mix dataset is implemented for now")
         else:
