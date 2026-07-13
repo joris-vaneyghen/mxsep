@@ -24,3 +24,7 @@ target_sources:
     - vocals
   other:
     - other
+
+random_mix:
+  mix_strategy: fixed_number
+  fixed_number_of_mixes: 32000
