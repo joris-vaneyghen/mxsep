@@ -90,9 +90,6 @@ class XLATrainer:
             raise NotImplementedError("Only predefined mix dataset is implemented for now")
 
 
-        if self.spectrogram_mode:
-            self.istft = ISTFTModule(cfg.model.stft)
-
         if cfg.dataset.validation:
             if cfg.dataset.validation.predefined_jsonl_path:
 
@@ -183,10 +180,6 @@ class XLATrainer:
         if self.multiple_predefined_mixes:
             # Load new mixes for this epoch
             self.train_dataset.init_epoch(self.epoch)
-            # reset sampler to allow variable dataset lengths
-            num_samples = len(self.train_dataset) // self.world_size
-            self.train_sampler.num_samples = num_samples
-            self.train_sampler.total_size = num_samples  * self.world_size
         else:
             self.train_sampler.set_epoch(self.epoch)
 
