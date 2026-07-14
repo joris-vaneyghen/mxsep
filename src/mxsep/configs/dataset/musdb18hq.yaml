@@ -27,4 +27,4 @@ target_sources:
 
 random_mix:
   mix_strategy: fixed_number
-  fixed_number_of_mixes: 32000
+  fixed_number_of_mixes: 3200

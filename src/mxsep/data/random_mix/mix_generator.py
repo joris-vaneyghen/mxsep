@@ -298,10 +298,15 @@ def generate_mix(epoch: int, dataset_config: DatasetConfig) -> Iterator[Mix]:
                     idx = indexes[stem]
                     mix.segments.append(segments[stem][idx])
 
-                    # Update index with modulo when stem segments is exhausted. common stems
                     if segments_remaining[stem] > 0:
-                        indexes[stem] = (idx + 1) % len(segments[stem])
                         segments_remaining[stem] -= 1
+
+                    if idx  ==  len(segments[stem]) -1 :
+                        indexes[stem] = 0
+                        random.shuffle(segments[stem])
+                    else:
+                        indexes[stem] += 1
+
                 else:
                     break
 
