@@ -229,30 +229,28 @@ class XLATrainer:
             steps += 1
             self.global_step += 1
 
-            def _log_step(loss, batch_idx):
-                batch_loss = loss.item()
-                # batch_loss = xm.mesh_reduce("batch_loss", batch_loss, np.mean)
+            batch_loss = loss.item()
+            batch_loss = xm.mesh_reduce("batch_loss", batch_loss, np.mean)
 
-                if xm.is_master_ordinal():
-                    metrics = {
-                        "batch_idx": batch_idx,
-                        "epoch": self.epoch,
-                        "loss": batch_loss,
-                        "lr": self.optimizer.param_groups[0][
-                            "lr"
-                        ],
-                    }
-                    self.monitor.log_step(metrics, self.epoch, batch_idx)
-                pass
+            if xm.is_master_ordinal():
+                epoch_loss += batch_loss
+                metrics = {
+                    "batch_idx": batch_idx,
+                    "epoch": self.epoch,
+                    "loss": batch_loss,
+                    "loss_avg": epoch_loss / steps,
+                    "lr": self.optimizer.param_groups[0][
+                        "lr"
+                    ],  # or self.optimizer.defaults['lr'],
+                }
+                self.monitor.log_step(metrics, self.epoch, batch_idx)
 
-            if steps % self.monitor.log_interval == 0:
-                xm.add_step_closure(
-                    _log_step, args=(loss, batch_idx)
-                )
-                
-
-
-    
+        if xm.is_master_ordinal():
+            # Calculate epoch averages
+            avg_loss = epoch_loss / steps
+            return {'avg_loss': avg_loss}
+        else :
+            return None
 
     def validate(self) -> dict[Any, Any] | dict[Any, float] | None:
         """Run validation"""
@@ -350,16 +348,16 @@ class XLATrainer:
             self.epoch = epoch
 
             # Train
-            self.train_epoch()
+            train_metrics = self.train_epoch()
 
             # Validate
             val_metrics = self.validate()
 
             # Print summary
-            # if xm.is_master_ordinal():
-            #     self.monitor.log_epoch_summary(
-            #         train_metrics, val_metrics, self.epoch
-            #     )
+            if xm.is_master_ordinal():
+                self.monitor.log_epoch_summary(
+                    train_metrics, val_metrics, self.epoch
+                )
 
             self.last_run = time.time() - start_time
             if self.max_runtime:
