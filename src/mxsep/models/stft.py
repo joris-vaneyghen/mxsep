@@ -2,8 +2,9 @@ from typing import Optional
 
 import torch
 from einops import einops
+from timm.layers import norm
 from torch import nn
-
+import torch.nn.functional as F
 from mxsep.cfg import STFTConfig
 
 
@@ -61,7 +62,6 @@ class STFTModule(nn.Module):
             x,
             n_fft=self.n_fft,
             hop_length=self.hop_length,
-            win_length=self.win_length,
             window=window,
             normalized=self.config.normalized,
             return_complex=True
@@ -114,7 +114,86 @@ class ISTFTModule(nn.Module):
         self.n_fft_is_power_of_two = is_power_of_two(self.n_fft)
 
 
+    def overlap_add_window_using_fold(self, frames:torch.Tensor):
+        B, T, N = frames.shape
+        assert N % self.hop_length == 0
 
+        window = self.window.to(frames.device)
+
+        signal_length = (T - 1) * self.hop_length + N
+
+        weighted = frames * window
+        weighted = weighted.transpose(1, 2)  # (B, N, T)
+
+        signal = F.fold(
+            weighted,
+            output_size=(1, signal_length),
+            kernel_size=(1, N),
+            stride=(1, self.hop_length),
+        ).squeeze(1).squeeze(2)
+        signal = signal.squeeze(1)
+
+        weights = (window ** 2).expand(B, T, N).transpose(1, 2)
+
+        norm = F.fold(
+            weights,
+            output_size=(1, signal_length),
+            kernel_size=(1, N),
+            stride=(1, self.hop_length),
+        ).squeeze(1).squeeze(2)
+        norm = norm.squeeze(1)
+
+        signal /= norm.clamp_min(1e-8)
+
+        return signal
+
+    def overlap_add_window_using_scatter_add(self, frames:torch.Tensor):
+        B, T, N = frames.shape
+
+        signal_length = (T - 1) * self.hop_length + N
+        device = frames.device
+        window = self.window.to(device)
+
+        signal = torch.zeros(B, signal_length, device=device, dtype=frames.dtype)
+        norm = torch.zeros_like(signal)
+
+        starts = torch.arange(T, device=device) * self.hop_length
+        offsets = torch.arange(N, device=device)
+
+        indices = starts[:, None] + offsets[None, :]
+        indices = indices.expand(B, -1, -1)
+
+        weighted = frames * window
+        weights = (window ** 2).expand(B, T, N)
+
+        signal.scatter_add_(
+            1,
+            indices.reshape(B, -1),
+            weighted.reshape(B, -1),
+        )
+
+        norm.scatter_add_(
+            1,
+            indices.reshape(B, -1),
+            weights.reshape(B, -1),
+        )
+
+        signal /= norm.clamp_min(1e-8)
+
+        return signal
+
+
+    def istft_alternative(self, spec:torch.Tensor):
+        #todo handle target length != (frames - 1) * hop_length
+        frames_fft = spec.permute(0, 2, 1)
+        norm = 'ortho' if self.config.normalized else 'backward'
+        frames = torch.fft.irfft(frames_fft, n=self.n_fft, norm=norm)
+        # signal = self.overlap_add_window_using_scatter_add(frames)
+        signal = self.overlap_add_window_using_fold(frames)
+        pad_amount = self.n_fft // 2
+        waveform = signal[:, pad_amount:-pad_amount]
+        
+        return waveform
 
     def forward(self, spectrogram: torch.Tensor, length: Optional[int] = None) -> torch.Tensor:
         """
@@ -128,10 +207,13 @@ class ISTFTModule(nn.Module):
             Waveform with shape [batch, channels, time] or [batch, sources, channels, time]
         """
         if spectrogram.dim() not in [5, 6]:
-            raise ValueError(f"Expected 4D or 5D input, got {spectrogram.dim()}D")
-        
+            raise ValueError(f"Expected 5D or 6D input, got {spectrogram.dim()}D")
+
+        device = spectrogram.device
+
         if spectrogram.dtype == torch.bfloat16:
             spectrogram = spectrogram.to(dtype=torch.float32)
+
         spectrogram = torch.view_as_complex(spectrogram.contiguous())
 
         if spectrogram.dim() == 5:
@@ -141,7 +223,7 @@ class ISTFTModule(nn.Module):
             batch, channels, freq_bins, time_frames = spectrogram.shape
 
         # Move window to correct device
-        window = self.window.to(spectrogram.device)
+        window = self.window.to(device)
 
         # Get original total number of frequency bins for reconstruction
         total_bins = self.n_fft // 2 + 1
@@ -163,16 +245,19 @@ class ISTFTModule(nn.Module):
             x = x.to(torch.complex64)
 
         # Compute ISTFT
-        x = torch.istft(
-            x,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=window,
-            normalized=self.config.normalized,
-            length=length,
-            return_complex=False
-        )
+        x = self.istft_alternative(x) # todo remove with below
+        # if device.type == 'xla':
+        #     x = self.istft_alternative(x)
+        # else:
+        #     x = torch.istft(
+        #         x,
+        #         n_fft=self.n_fft,
+        #         hop_length=self.hop_length,
+        #         window=window,
+        #         normalized=self.config.normalized,
+        #         length=length,
+        #         return_complex=False
+        #     )
 
 
         # Reshape back to original format
