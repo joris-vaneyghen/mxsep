@@ -128,6 +128,8 @@ class XLATrainer:
 
         self.model = MusicSourceSeparationModel(cfg.model)
         self.model.to(self.device)
+        self.model.train()
+        self.model = torch.compile(self.model, backend="openxla") # use TorchDynamo (see https://docs.pytorch.org/xla/release/r2.8/perf/dynamo.html)
         xm.broadcast_master_param(self.model)
         
         self.optimizer: torch.optim.Optimizer = hydra.utils.instantiate(cfg.training.optimizer, _partial_=True)(params=self.model.parameters())

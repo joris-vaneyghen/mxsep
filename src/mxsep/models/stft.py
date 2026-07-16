@@ -16,7 +16,9 @@ class STFTModule(nn.Module):
         self.n_fft = config.n_fft
         self.hop_length = config.hop_length
         self.win_length = config.win_length
-        self.window = torch.hann_window(config.win_length) # todo if config.window == 'hann' else
+        self.window = torch.hann_window(config.win_length)  
+        # todo if config.window == 'hann' else ...
+        # todo use self.register_buffer("window", torch.hann_window(n_fft))
         self.keep_freq_bins = config.keep_freq_bins
 
         # Validate that we're not trying to keep more bins than available
@@ -95,6 +97,8 @@ class ISTFTModule(nn.Module):
         self.hop_length = config.hop_length
         self.win_length = config.win_length
         self.window = torch.hann_window(config.win_length)
+        # todo if config.window == 'hann' else ...
+        # todo use self.register_buffer("window", torch.hann_window(n_fft))
         self.keep_freq_bins = config.keep_freq_bins
 
         # Validate that we're not trying to keep more bins than available
@@ -245,19 +249,18 @@ class ISTFTModule(nn.Module):
             x = x.to(torch.complex64)
 
         # Compute ISTFT
-        x = self.istft_alternative(x) # todo remove with below
-        # if device.type == 'xla':
-        #     x = self.istft_alternative(x)
-        # else:
-        #     x = torch.istft(
-        #         x,
-        #         n_fft=self.n_fft,
-        #         hop_length=self.hop_length,
-        #         window=window,
-        #         normalized=self.config.normalized,
-        #         length=length,
-        #         return_complex=False
-        #     )
+        if device.type == 'xla':
+            x = self.istft_alternative(x)
+        else:
+            x = torch.istft(
+                x,
+                n_fft=self.n_fft,
+                hop_length=self.hop_length,
+                window=window,
+                normalized=self.config.normalized,
+                length=length,
+                return_complex=False
+            )
 
 
         # Reshape back to original format
