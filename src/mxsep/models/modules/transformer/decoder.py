@@ -1,6 +1,10 @@
 # see https://github.com/pytorch/xla/blob/master/examples/decoder_only_model.py
+# see http://github.com/meta-llama/llama-models/blob/main/models/llama3/model.py
+# see https://waylandz.com/llm-transformer-book-en/chapter-25-positional-encoding-evolution/
+# see https://towardsdatascience.com/positional-embeddings-in-transformers-a-math-guide-to-rope-alibi/
 
 import math
+from typing import Tuple
 
 import torch
 import torch.nn.functional as F
@@ -20,6 +24,52 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     )
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
+def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
+    ndim = x.ndim
+    assert 0 <= 1 < ndim
+    assert freqs_cis.shape == (x.shape[1], x.shape[-1])
+    shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
+    return freqs_cis.view(*shape)
+
+def apply_rotary_emb(
+    xq: torch.Tensor,
+    xk: torch.Tensor,
+    freqs_cis: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
+    xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2))
+    freqs_cis = reshape_for_broadcast(freqs_cis, xq_)
+    xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(3)
+    xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(3)
+    return xq_out.type_as(xq), xk_out.type_as(xk)
+
+def apply_scaling(freqs: torch.Tensor) -> torch.Tensor:
+    # Values obtained from grid search
+    scale_factor = 8
+    low_freq_factor = 1
+    high_freq_factor = 4
+    old_context_len = 8192  # original llama3 length
+
+    low_freq_wavelen = old_context_len / low_freq_factor
+    high_freq_wavelen = old_context_len / high_freq_factor
+
+    wavelen = 2 * torch.pi / freqs
+    new_freqs = torch.where(wavelen > low_freq_wavelen, freqs / scale_factor, freqs)
+    smooth = (old_context_len / wavelen - low_freq_factor) / (high_freq_factor - low_freq_factor)
+    return torch.where(
+        (wavelen >= high_freq_wavelen) & (wavelen <= low_freq_wavelen),
+        (1 - smooth) * new_freqs / scale_factor + smooth * new_freqs,
+        new_freqs,
+    )
+
+def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, use_scaled: bool = False):
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
+    t = torch.arange(end, device=freqs.device, dtype=torch.float32)
+    if use_scaled:
+        freqs = apply_scaling(freqs)
+    freqs = torch.outer(t, freqs)
+    freqs_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
+    return freqs_cis
 
 class RMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
@@ -76,7 +126,9 @@ class GroupQueryAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        freqs_cis: torch.Tensor,
     ) -> torch.Tensor:
+
         bsz, q_len, _ = hidden_states.size()
         # [B, S, H] -> [B, S, n_head * head_dim]
         query_states = self.q_proj(hidden_states)
@@ -85,14 +137,21 @@ class GroupQueryAttention(nn.Module):
         # [B, S, H] -> [B, S, n_kv_head * head_dim]
         value_states = self.v_proj(hidden_states)
 
-        # [B, S, n_head * head_dim] -> [B, n_head, S, head_dim]
+        # [B, S, n_head * head_dim] -> [B, S, n_head,  head_dim]
         query_states = query_states.view(
             bsz, q_len, self.num_heads, self.head_dim
-        ).transpose(1, 2)
-        # [B, S, n_kv_head * head_dim] -> [B, n_kv_head, S, head_dim]
+        )
+        # [B, S, n_kv_head * head_dim] -> [B, S, n_kv_head, head_dim]
         key_states = key_states.view(
             bsz, q_len, self.num_key_value_heads, self.head_dim
-        ).transpose(1, 2)
+        )
+        query_states, key_states = apply_rotary_emb(query_states, key_states, freqs_cis=freqs_cis)
+
+        # [B, S, n_head,  head_dim] -> [B, n_head, S, head_dim]
+        query_states = query_states.transpose(1, 2)
+        # [B, S, n_kv_head, head_dim] -> [B, n_kv_head, S, head_dim]
+        key_states = key_states.transpose(1, 2)
+        
         # [B, S, n_kv_head * head_dim] -> [B, n_kv_head, S, head_dim]
         value_states = value_states.view(
             bsz, q_len, self.num_key_value_heads, self.head_dim
@@ -172,6 +231,9 @@ class DecoderLayer(nn.Module):
         num_key_value_heads: int = 4,
         intermediate_size: int = 3 * 1024,
         use_flash_attention=False,
+        max_seq_len=2048,
+        rope_theta: float = 500000,
+        use_scaled_rope: bool = False,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -185,11 +247,23 @@ class DecoderLayer(nn.Module):
         self.input_layernorm = RMSNorm(hidden_size)
         self.post_attention_layernorm = RMSNorm(hidden_size)
 
+        self.freqs_cis = precompute_freqs_cis(
+            hidden_size // num_attention_heads,
+            max_seq_len * 2,
+            rope_theta,
+            use_scaled_rope,
+        )
+
     def forward(
         self,
         hidden_states: torch.Tensor,
         **kwargs,
     ) -> torch.FloatTensor:
+
+        self.freqs_cis = self.freqs_cis.to(hidden_states.device)
+        seqlen = hidden_states.shape[-2]
+        freqs_cis = self.freqs_cis[0 : seqlen ]
+
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)
@@ -197,6 +271,7 @@ class DecoderLayer(nn.Module):
         # Self Attention
         hidden_states = self.self_attn(
             hidden_states=hidden_states,
+            freqs_cis = freqs_cis
         )
         hidden_states = residual + hidden_states
 
