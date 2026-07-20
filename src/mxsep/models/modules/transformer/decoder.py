@@ -232,7 +232,7 @@ class DecoderLayer(nn.Module):
         intermediate_size: int = 3 * 1024,
         use_flash_attention=False,
         max_seq_len=2048,
-        rope_theta: float = 500000,
+        rope_theta: float = 10000.0,
         use_scaled_rope: bool = False,
     ):
         super().__init__()
