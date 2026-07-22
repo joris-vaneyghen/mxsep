@@ -223,7 +223,7 @@ class MLP(nn.Module):
         return down_proj
 
 
-class DecoderLayer(nn.Module):
+class EncoderLayer(nn.Module):
     def __init__(
         self,
         hidden_size: int = 1024,
@@ -282,23 +282,3 @@ class DecoderLayer(nn.Module):
         hidden_states = residual + hidden_states
 
         return hidden_states
-
-
-if __name__ == '__main__':
-    
-    
-    batch_size = 1
-    hidden_size = 1024
-    seq_len = 100
-    device = 'cuda'
-
-    layer = DecoderLayer(
-        hidden_size=hidden_size,
-        num_attention_heads=8,
-        num_key_value_heads=4,
-        intermediate_size=3 * 1024,
-    ).to(device=device)
-    input = torch.randn(batch_size, seq_len, hidden_size, device=device)
-    with torch.no_grad():
-        out = layer(input)
-        print(out.shape)

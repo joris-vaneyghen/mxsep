@@ -1,0 +1,6 @@
+_target_: mxsep.models.modules.transformer.EncoderLayer
+num_attention_heads: 8
+num_key_value_heads: 4
+use_flash_attention: False
+max_seq_len: 2048
+rope_theta: 10000.0
