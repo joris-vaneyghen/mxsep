@@ -71,6 +71,23 @@ def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, use_scaled:
     freqs_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
     return freqs_cis
 
+
+def get_alibi_slopes(n_heads: int) -> torch.Tensor:
+    start = 2 ** (-8 / n_heads)
+    ratio = start
+    return torch.tensor([start * (ratio ** i) for i in range(n_heads)])
+
+
+def get_linear_bias(n_heads: int, ctx_size:int) -> torch.Tensor:
+    slopes = get_alibi_slopes(n_heads).view(n_heads, 1, 1)
+    pos = torch.arange(ctx_size)
+    distances = pos[None, :] - pos[:, None]
+    #  For encoder we use -abs instead of min(0, distance)
+    distances = - distances.abs()
+    distances.unsqueeze_(0)  # 1, ctx_size, ctx_size
+    linear_bias = distances * slopes  # n_heads, ctx_size, ctx_size
+    return linear_bias.unsqueeze(0)  # 1, n_heads, ctx_size, ctx_size
+
 class RMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
         """
@@ -123,12 +140,17 @@ class GroupQueryAttention(nn.Module):
         )
         self.flash_attention_impl = None
 
+        self.pos_embedding = "alibi"
+        if self.pos_embedding == 'alibi':
+            linear_bias = get_linear_bias(n_heads=self.num_heads, ctx_size=256)  # todo share overlayer (~freqs_cis)
+            self.register_buffer("linear_bias", linear_bias)
+            
+
     def forward(
         self,
         hidden_states: torch.Tensor,
         freqs_cis: torch.Tensor,
     ) -> torch.Tensor:
-
         bsz, q_len, _ = hidden_states.size()
         # [B, S, H] -> [B, S, n_head * head_dim]
         query_states = self.q_proj(hidden_states)
@@ -145,7 +167,8 @@ class GroupQueryAttention(nn.Module):
         key_states = key_states.view(
             bsz, q_len, self.num_key_value_heads, self.head_dim
         )
-        query_states, key_states = apply_rotary_emb(query_states, key_states, freqs_cis=freqs_cis)
+        if self.pos_embedding == 'rope':
+            query_states, key_states = apply_rotary_emb(query_states, key_states, freqs_cis=freqs_cis)
 
         # [B, S, n_head,  head_dim] -> [B, n_head, S, head_dim]
         query_states = query_states.transpose(1, 2)
@@ -168,6 +191,10 @@ class GroupQueryAttention(nn.Module):
                 "bnsh,bnkh->bnsk", query_states, key_states
             ) / math.sqrt(self.head_dim)
 
+            if self.pos_embedding == "alibi":
+                linear_bias = self.linear_bias[:, :, :q_len, :q_len]
+                attn_weights = attn_weights + linear_bias
+
             # upcast attention to fp32
             attn_weights = nn.functional.softmax(
                 attn_weights, dim=-1, dtype=torch.float32
@@ -177,6 +204,7 @@ class GroupQueryAttention(nn.Module):
             attn_output = torch.einsum("bnsk,bnkh->bnsh", attn_weights, value_states)
         else:
             assert self.flash_attention_impl != None
+            assert self.pos_embedding != "alibi"
             # [B, n_head, S, head_dim], [B, n_head, S, head_dim], [B, n_head, S, head_dim]
             # -> [B, n_head, S, head_dim]
             attn_output = self.flash_attention_impl(
