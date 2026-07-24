@@ -6,7 +6,6 @@ from typing import Dict, Any
 import hydra
 import numpy as np
 import torch
-from torch import Tensor
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -252,8 +251,10 @@ class DDPTrainer:
             return {}
 
         self.model.eval()
-        val_loss = 0.0
-        all_metrics = {}
+        val_loss = torch.zeros(1, dtype=torch.float32, device=self.device)
+        sdr = torch.zeros(len(self.target_sources), dtype=torch.float32, device=self.device)
+        
+        cnt  =  0 
 
         with torch.inference_mode():
             for batch_idx, batch in enumerate(self.validation_loader):
@@ -270,60 +271,38 @@ class DDPTrainer:
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss = self.loss_fn(outputs, y)
                 
-                # Compute metrics
-                if self.spectrogram_mode:
-                    outputs = self.istft(outputs.detach().cpu())
-                    y = y_waveform
+                    if self.spectrogram_mode:
+                        outputs = self.istft(outputs.detach().cpu())
+                        y = y_waveform
 
-                if self.rank == 0:
-                    all_outputs = [
-                        torch.zeros_like(outputs, device=self.device) for i in range(self.world_size)
-                    ]
-                    all_y  = [
-                        torch.zeros_like(y, device=self.device) for i in range(self.world_size)
-                    ]
-                    all_losses = [
-                        torch.zeros_like(loss, device=self.device) for i in range(self.world_size)
-                    ]
-                else:
-                    all_outputs = None
-                    all_y = None
-                    all_losses = None
+                val_loss += loss.detach()
+                sdr += calculate_sdr(outputs.detach(), y.detach())
+                cnt += 1
+                
 
-                dist.gather(outputs, gather_list=all_outputs, dst=0)
-                dist.gather(y, gather_list=all_y, dst=0)
-                dist.gather(loss, gather_list=all_losses, dst=0)
+        val_loss = val_loss / cnt
+        sdr = sdr / cnt
+        dist.reduce(val_loss, dst=0, op=dist.ReduceOp.SUM)
+        dist.reduce(sdr, dst=0, op=dist.ReduceOp.SUM)
+        val_loss = val_loss.item() / self.world_size
+        sdr = sdr / self.world_size
+        metrics = {}
+        metrics['val_loss'] = val_loss
+        if len(self.target_sources) > 1:
+            for sdr_val, source in zip(sdr, self.target_sources):
+                metrics["val_sdr_" + source] = sdr_val.item()
 
-                if self.rank == 0:
-                    for (_outputs, _y, _loss) in zip(all_outputs, all_y, all_losses):
-                        metrics = self._compute_metrics(_outputs, _y)
-                        metrics = {f'val_{k}':v for k, v in metrics.items()}
-                        metrics["val_loss"] = _loss.item()
-                        for key, value in metrics.items():
-                            if key not in all_metrics:
-                                all_metrics[key] = []
-                            all_metrics[key].append(value)
-
-                    avg_metrics = {k: sum(v) / len(v) for k, v in all_metrics.items()}
-                    data = {
-                        **avg_metrics,
-                        "batch_idx": batch_idx,
-                    }
-                    self.monitor.log_data(data)
-
+        metrics["val_sdr"] = torch.mean(sdr).item()
 
         if self.rank == 0:
-            # Average metrics
-            avg_metrics = {k: sum(v) / len(v) for k, v in all_metrics.items()}
-
             # Save best model
-            if avg_metrics['val_sdr'] > self.best_metric: #todo if not sdr then '<'
-                self.best_metric = avg_metrics['val_sdr']
+            if metrics['val_sdr'] > self.best_metric: #todo if not sdr then '<'
+                self.best_metric = metrics['val_sdr']
                 self._save_checkpoint('best_model.pt')
     
             self._save_checkpoint('latest_model.pt')
 
-            return avg_metrics
+            return metrics
         
         else :
             return None

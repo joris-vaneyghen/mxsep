@@ -1,73 +1,57 @@
-import numpy as np
 import torch
 
 
-def calculate_sdr(pred: torch.Tensor, target: torch.Tensor, target_sources :list[str]) -> dict[str, float]:
+def calculate_sdr(
+    pred: torch.Tensor, target: torch.Tensor
+) -> torch.Tensor:
     """
     Calculate the Signal-to-Distortion Ratio (SDR) between the predicted and target signals.
 
     Args:
-        pred (numpy.ndarray): The predicted signal. shape = (batch_size, nb_sources, num_channels, num_samples)
-        target (numpy.ndarray): The target signal. shape = (batch_size, nb_sources, num_channels, num_samples)
-        target_sources list[str] : traget_sources (names) of the sources to calculate SDR for. nb_sources = len(target_sources)
-    
+        pred (torch.Tensor): The predicted signal. shape = (batch_size, nb_sources, num_channels, num_samples)
+        target (torch.Tensor): The target signal. shape = (batch_size, nb_sources, num_channels, num_samples)
+
     Returns:
-        dict[str,float]: The calculated SDR value per source and mean SRD.
-    
+        sdr torch.Tensor: The calculated SDR value per source shape = (nb_sources)
     """
-    metrics = {}
-    pred = pred.detach().cpu().numpy()
-    target = target.detach().cpu().numpy()
-    sdr = _sdr(pred, target)
-    if len(target_sources) > 1:
-        sdr_per_source = np.mean(sdr, axis=1) # mean of batches (keep sources)
-        for sdr, source in zip(sdr_per_source, target_sources):
-            metrics['sdr_' + source] = sdr
+    sdr = _sdr(pred, target) # shape = (batch_size, nb_sources)
 
-    metrics['sdr'] = np.mean(sdr)
+    # Mean over batches, keep sources dimension
+    sdr_per_source = torch.mean(sdr, dim=0)
 
-    return metrics
+    return sdr_per_source
 
-def _sdr(references: np.ndarray, estimates: np.ndarray) ->  np.ndarray:
+
+def _sdr(references: torch.Tensor, estimates: torch.Tensor) -> torch.Tensor:
     """
     Compute Signal-to-Distortion Ratio (SDR) for one or more audio tracks.
 
     SDR is a measure of how well the predicted source (estimate) matches the reference source.
-    It is calculated as the ratio of the energy of the reference signal to the energy of the error (difference between reference and estimate).
+    It is calculated as the ratio of the energy of the reference signal to the energy of the error
+    (difference between reference and estimate).
     Return SDR in decibels (dB)
+
     Parameters:
     ----------
-    references : np.ndarray
-        A  numpy array of shape (..., num_channels, num_samples), where num_sources is the number of sources,
+    references : torch.Tensor
+        A torch tensor of shape (..., num_channels, num_samples)
         num_channels is the number of channels (e.g., 1 for mono, 2 for stereo), and num_samples is the length of the audio signal.
 
-    estimates : np.ndarray
-        A numpy array of shape (...,  num_sources, num_channels, num_samples) representing the estimated sources.
+    estimates : torch.Tensor
+        A torch tensor of shape (..., num_channels, num_samples) representing the estimated sources.
 
     Returns:
     -------
-    np.ndarray
-        A 1D numpy array containing the SDR values for each source.
+    torch.Tensor
+        A tensor containing the SDR values for each source.
     """
     eps = 1e-8  # to avoid numerical errors
-    num = np.sum(np.square(references), axis=(-2, -1))
-    den = np.sum(np.square(references - estimates), axis=(-2, -1))
-    num += eps
-    den += eps
-    return 10 * np.log10(num / den)
 
+    # Sum over the last two dimensions (channels and samples)
+    num = torch.sum(torch.square(references), dim=(-2, -1))
+    den = torch.sum(torch.square(references - estimates), dim=(-2, -1))
 
+    num = num + eps
+    den = den + eps
 
-# def calculate_sisdr(pred: torch.Tensor, target: torch.Tensor):
-#     """
-#     Calculate the Scale-Invariant Signal-to-Distortion Ratio (SI-SDR) between the predicted and target signals.
-#
-#     Args:
-#         pred (numpy.ndarray): The predicted signal.
-#         target (numpy.ndarray): The target signal.
-#
-#     Returns:
-#         float: The calculated SDR value.
-#
-#     """
-#     return _sdr(pred, target)
+    return 10 * torch.log10(num / den)

@@ -262,12 +262,13 @@ class Trainer:
                 with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss = self.loss_fn(outputs, y)
-                val_loss = loss.item()
 
-                # Compute metrics
-                if self.spectrogram_mode:
-                    outputs = self.istft(outputs.detach().cpu())
-                    y = y_waveform
+                    # Compute metrics
+                    if self.spectrogram_mode:
+                        outputs = self.istft(outputs.detach().cpu())
+                        y = y_waveform
+
+                val_loss = loss.item()
 
                 metrics = self._compute_metrics(outputs, y)
                 metrics = {f'val_{k}':v for k, v in metrics.items()}
@@ -360,9 +361,15 @@ class Trainer:
         """Compute evaluation metrics"""
         metrics = {}
 
-        sdr = calculate_sdr(outputs, targets, self.target_sources)
-        metrics = {**sdr}
-        
+        sdr = calculate_sdr(outputs, targets)
+
+        if len(self.target_sources) > 1:
+            for sdr_val, source in zip(sdr, self.target_sources):
+                metrics["sdr_" + source] = sdr_val.item()
+
+        metrics["sdr"] = torch.mean(sdr).item()
+
+
 
         # SI-SDR
         # sisdr = calculate_sisdr(outputs[source_name], targets[source_name])
