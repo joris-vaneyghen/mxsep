@@ -20,6 +20,7 @@ from mxsep.cfg import Config
 from mxsep.data.dataset import PredefinedMixDataset
 from mxsep.models import ISTFTModule, MusicSourceSeparationModel
 from mxsep.training import Monitor
+from mxsep.utils.metrics import calculate_sdr
 
 
 class XLATrainer:
@@ -260,8 +261,10 @@ class XLATrainer:
             return {}
 
         self.model.eval()
-        val_loss = 0.0
-        all_metrics = {}
+        val_loss = torch.zeros(1, dtype=torch.float32, device=self.device)
+        sdr = torch.zeros(len(self.target_sources), dtype=torch.float32, device=self.device)
+
+        cnt  =  0
 
         with torch.no_grad():
         # with torch.inference_mode():
@@ -276,32 +279,33 @@ class XLATrainer:
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss= self.loss_fn(outputs, y)
                 
-                val_loss = loss.item()
-                val_loss = xm.mesh_reduce("val_loss", val_loss, np.mean)
+                val_loss += loss.detach()
+                sdr += calculate_sdr(outputs.detach(), y.detach())
+                cnt += 1
 
-                if xm.is_master_ordinal():
-                    all_metrics["val_loss"].append(val_loss)
-                    avg_metrics = {k: sum(v) / len(v) for k, v in all_metrics.items()}
-                    data = {
-                        **avg_metrics,
-                        "batch_idx": batch_idx,
-                    }
-                    self.monitor.log_data(data)
+        val_loss = val_loss / cnt
+        sdr = sdr / cnt
+        xm.mesh_reduce("val_loss", val_loss, np.sum)
+        xm.mesh_reduce("sdr", sdr, np.sum)
+        val_loss = val_loss.item() / self.world_size
+        sdr = sdr / self.world_size
+        metrics = {}
+        metrics["val_loss"] = val_loss
+        if len(self.target_sources) > 1:
+            for sdr_val, source in zip(sdr, self.target_sources):
+                metrics["val_sdr_" + source] = sdr_val.item()
+
+        metrics["val_sdr"] = torch.mean(sdr).item()
 
 
         if xm.is_master_ordinal():
-            # Average metrics
-            avg_metrics = {k: sum(v) / len(v) for k, v in all_metrics.items()}
-
             # Save best model
-            if avg_metrics['val_loss'] < self.best_metric: #todo if sdr then '>'
-                self.best_metric = avg_metrics['val_sdr']
+            if metrics['val_loss'] < self.best_metric: #todo if sdr then '>'
+                self.best_metric = metrics['val_sdr']
                 self._save_checkpoint('best_model.pt')
     
             self._save_checkpoint('latest_model.pt')
-
-            return avg_metrics
-        
+            return metrics
         else :
             return None
 
