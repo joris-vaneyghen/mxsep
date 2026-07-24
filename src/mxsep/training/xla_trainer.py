@@ -233,7 +233,7 @@ class XLATrainer:
             self.global_step += 1
 
             batch_loss = loss.item()
-            batch_loss = xm.mesh_reduce("batch_loss", batch_loss, np.mean)
+            batch_loss = xm.all_reduce("batch_loss", batch_loss, np.mean)
 
             if xm.is_master_ordinal():
                 epoch_loss += batch_loss
@@ -285,22 +285,23 @@ class XLATrainer:
 
         val_loss = val_loss / cnt
         sdr = sdr / cnt
-        xm.mesh_reduce("val_loss", val_loss, np.sum)
-        xm.mesh_reduce("sdr", sdr, np.sum)
-        val_loss = val_loss.item() / self.world_size
-        sdr = sdr / self.world_size
+        val_loss = val_loss.item()
+        xm.mesh_reduce("val_loss", val_loss, np.mean)
+        
         metrics = {}
         metrics["val_loss"] = val_loss
-        if len(self.target_sources) > 1:
-            for sdr_val, source in zip(sdr, self.target_sources):
-                metrics["val_sdr_" + source] = sdr_val.item()
+        # if len(self.target_sources) > 1: todo
+        #     for sdr_val, source in zip(sdr, self.target_sources):
+        #         metrics["val_sdr_" + source] = sdr_val.item()
 
-        metrics["val_sdr"] = torch.mean(sdr).item()
-
+        val_sdr = torch.mean(sdr).item()
+        xm.mesh_reduce("val_sdr", val_sdr, np.mean)
+        metrics["val_sdr"] = val_sdr
 
         if xm.is_master_ordinal():
             # Save best model
-            if metrics['val_loss'] < self.best_metric: #todo if sdr then '>'
+            if metrics['val_loss'] < self.best_metric:  # todo if sdr then '>'
+                xm.master_print("Save best model with")
                 self.best_metric = metrics['val_sdr']
                 self._save_checkpoint('best_model.pt')
     
