@@ -233,7 +233,7 @@ class XLATrainer:
             self.global_step += 1
 
             batch_loss = loss.item()
-            batch_loss = xm.all_reduce("batch_loss", batch_loss, np.mean)
+            batch_loss = xm.mesh_reduce("batch_loss", batch_loss, np.mean)
 
             if xm.is_master_ordinal():
                 epoch_loss += batch_loss
