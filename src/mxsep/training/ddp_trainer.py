@@ -98,10 +98,34 @@ class DDPTrainer:
         self.model = MusicSourceSeparationModel(cfg.model)
 
         def init_weights(m):
-            if isinstance(m, (torch.nn.Linear, torch.nn.Conv2d)):
-                torch.nn.init.xavier_uniform_(m.weight)
+            # --- CONVOLUTIONAL LAYERS (Encoder/Decoder) ---
+            if isinstance(m, (torch.nn.Conv2d, torch.nn.ConvTranspose2d)):
+                # Kaiming/He initialization for Conv layers with ReLU
+                torch.nn.init.kaiming_normal_(
+                    m.weight, mode="fan_out", nonlinearity="relu"
+                )
                 if m.bias is not None:
                     torch.nn.init.zeros_(m.bias)
+
+            # --- TRANSFORMER BOTTLENECK ---
+            elif isinstance(m, torch.nn.Linear):
+                # For attention projections and feed-forward networks
+                # Use a smaller scale for deeper transformers
+                if hasattr(m, "in_features") and hasattr(m, "out_features"):
+                    # Xavier/Glorot is still good for Linear layers
+                    # but scale it for transformer depth
+                    torch.nn.init.xavier_uniform_(
+                        m.weight, gain=0.02
+                    )  # Smaller gain for stability
+                    if m.bias is not None:
+                        torch.nn.init.zeros_(m.bias)
+
+            # --- NORMALIZATION LAYERS ---
+            elif isinstance(
+                m, (torch.nn.BatchNorm2d, torch.nn.LayerNorm, torch.nn.GroupNorm)
+            ):
+                torch.nn.init.ones_(m.weight)  # Scale to 1
+                torch.nn.init.zeros_(m.bias)  # Shift to 0
 
         self.model.apply(init_weights)
         self.model.to(self.device)
