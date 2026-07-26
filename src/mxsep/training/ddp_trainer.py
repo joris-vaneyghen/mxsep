@@ -314,9 +314,6 @@ class DDPTrainer:
                         outputs = self.istft(outputs.detach().cpu())
                         y = y_waveform
 
-                if torch.isnan(loss) or torch.isinf(loss):
-                    print(f"Warning: NaN/Inf loss detected for validation")
-
                 val_loss += loss
                 sdr += calculate_sdr(outputs, y)
                 cnt += 1
@@ -326,6 +323,14 @@ class DDPTrainer:
         sdr = sdr / cnt
         dist.reduce(val_loss, dst=0, op=dist.ReduceOp.SUM)
         dist.reduce(sdr, dst=0, op=dist.ReduceOp.SUM)
+
+        if torch.isnan(val_loss) or torch.isinf(val_loss):
+            print(f"Warning: NaN/Inf loss detected for validation")
+            for m in self.model.module.modules():
+                if isinstance(m, torch.nn.BatchNorm2d):
+                    print(f"Warning: reset BatchNorm2d")
+                    m.reset_running_stats()
+
         val_loss = val_loss.item() / self.world_size
         sdr = sdr / self.world_size
         metrics = {}
