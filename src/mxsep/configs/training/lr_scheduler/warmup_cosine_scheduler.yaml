@@ -1,0 +1,4 @@
+_target_: mxsep.utils.lr_scheduler.WarmupCosineScheduler
+warmup_steps: 400
+total_steps: 40000
+min_lr_ratio: 0.00001
