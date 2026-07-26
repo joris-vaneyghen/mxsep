@@ -96,6 +96,14 @@ class DDPTrainer:
         self.init_randomizer()
 
         self.model = MusicSourceSeparationModel(cfg.model)
+
+        def init_weights(m):
+            if isinstance(m, (torch.nn.Linear, torch.nn.Conv2d)):
+                torch.nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+        self.model.apply(init_weights)
         self.model.to(self.device)
         
         self.optimizer: torch.optim.Optimizer = hydra.utils.instantiate(cfg.training.optimizer, _partial_=True)(params=self.model.parameters())
@@ -225,6 +233,9 @@ class DDPTrainer:
             dist.reduce(loss, dst=0, op=dist.ReduceOp.SUM)
 
             if self.rank == 0:
+                if torch.isnan(loss) or torch.isinf(loss):
+                    print(f"Warning: NaN/Inf loss detected for batch")
+
                 batch_loss = loss.item() / self.world_size
                 epoch_loss += batch_loss
                 metrics = {
@@ -275,8 +286,11 @@ class DDPTrainer:
                         outputs = self.istft(outputs.detach().cpu())
                         y = y_waveform
 
-                val_loss += loss.detach()
-                sdr += calculate_sdr(outputs.detach(), y.detach())
+                if torch.isnan(loss) or torch.isinf(loss):
+                    print(f"Warning: NaN/Inf loss detected for validation")
+
+                val_loss += loss
+                sdr += calculate_sdr(outputs, y)
                 cnt += 1
                 
 

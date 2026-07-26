@@ -94,6 +94,13 @@ class Trainer:
         self.init_randomizer()
 
         self.model = MusicSourceSeparationModel(cfg.model)
+        def init_weights(m):
+            if isinstance(m, (torch.nn.Linear, torch.nn.Conv2d)):
+                torch.nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+        self.model.apply(init_weights)
         self.model.to(self.device)
         
         self.optimizer = hydra.utils.instantiate(cfg.training.optimizer, _partial_=True)(params=self.model.parameters())
@@ -205,6 +212,9 @@ class Trainer:
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
+            if torch.isnan(loss) or torch.isinf(loss):
+                print(f"Warning: NaN/Inf loss detected for batch")
+
             # Update trackers
             batch_loss = loss.item()
             epoch_loss += batch_loss
@@ -268,8 +278,11 @@ class Trainer:
                         outputs = self.istft(outputs.detach().cpu())
                         y = y_waveform
 
-                val_loss = loss.item()
+                if torch.isnan(loss) or torch.isinf(loss):
+                    print(f"Warning: NaN/Inf loss detected for validation")
 
+                val_loss = loss.item()
+                
                 metrics = self._compute_metrics(outputs, y)
                 metrics = {f'val_{k}':v for k, v in metrics.items()}
                 metrics['val_loss'] = val_loss
