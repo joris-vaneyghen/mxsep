@@ -256,10 +256,14 @@ class DDPTrainer:
             loss = loss.detach()
             dist.reduce(loss, dst=0, op=dist.ReduceOp.SUM)
 
-            if self.rank == 0:
-                if torch.isnan(loss) or torch.isinf(loss):
-                    print(f"Warning: NaN/Inf loss detected for batch")
+            if torch.isnan(loss) or torch.isinf(loss):
+                print(f"Warning: NaN/Inf loss detected for batch")
+                for m in self.model.module.modules():
+                    if isinstance(m, torch.nn.BatchNorm2d):
+                        print(f"Warning: reset BatchNorm2d")
+                        m.reset_running_stats()
 
+            if self.rank == 0:
                 batch_loss = loss.item() / self.world_size
                 epoch_loss += batch_loss
                 metrics = {

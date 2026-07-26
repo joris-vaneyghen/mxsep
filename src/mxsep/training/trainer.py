@@ -238,6 +238,10 @@ class Trainer:
 
             if torch.isnan(loss) or torch.isinf(loss):
                 print(f"Warning: NaN/Inf loss detected for batch")
+                for m in self.model.modules():
+                    if isinstance(m, torch.nn.BatchNorm2d):
+                        print(f"Warning: reset BatchNorm2d")
+                        m.reset_running_stats()
 
             # Update trackers
             batch_loss = loss.item()
