@@ -128,6 +128,38 @@ class XLATrainer:
         self.init_randomizer()
 
         self.model = MusicSourceSeparationModel(cfg.model)
+
+        def init_weights(m):
+            # --- CONVOLUTIONAL LAYERS (Encoder/Decoder) ---
+            if isinstance(m, (torch.nn.Conv2d, torch.nn.ConvTranspose2d)):
+                # Kaiming/He initialization for Conv layers with ReLU
+                torch.nn.init.kaiming_normal_(
+                    m.weight, mode="fan_out", nonlinearity="relu"
+                )
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+
+            # --- TRANSFORMER BOTTLENECK ---
+            elif isinstance(m, torch.nn.Linear):
+                # For attention projections and feed-forward networks
+                # Use a smaller scale for deeper transformers
+                if hasattr(m, "in_features") and hasattr(m, "out_features"):
+                    # Xavier/Glorot is still good for Linear layers
+                    # but scale it for transformer depth
+                    torch.nn.init.xavier_uniform_(
+                        m.weight, gain=0.02
+                    )  # Smaller gain for stability
+                    if m.bias is not None:
+                        torch.nn.init.zeros_(m.bias)
+
+            # --- NORMALIZATION LAYERS ---
+            elif isinstance(
+                m, (torch.nn.BatchNorm2d, torch.nn.LayerNorm, torch.nn.GroupNorm)
+            ):
+                torch.nn.init.ones_(m.weight)  # Scale to 1
+                torch.nn.init.zeros_(m.bias)  # Shift to 0
+
+        self.model.apply(init_weights)
         self.model.to(self.device)
         # self.model.train()
         # self.model = torch.compile(self.model, backend="openxla") # use TorchDynamo (see https://docs.pytorch.org/xla/release/r2.8/perf/dynamo.html)
@@ -235,6 +267,13 @@ class XLATrainer:
             batch_loss = loss.item()
             batch_loss = xm.mesh_reduce("batch_loss", batch_loss, np.mean)
 
+            if torch.isnan(loss) or torch.isinf(loss):
+                xm.master_print(f"Warning: NaN/Inf loss detected for batch")
+                for m in self.model.modules():
+                    if isinstance(m, torch.nn.BatchNorm2d):
+                        xm.master_print(f"Warning: reset BatchNorm2d")
+                        m.reset_running_stats()
+
             if xm.is_master_ordinal():
                 epoch_loss += batch_loss
                 metrics = {
@@ -286,7 +325,7 @@ class XLATrainer:
         val_loss = val_loss / cnt
         sdr = sdr / cnt
         val_loss = val_loss.item()
-        xm.mesh_reduce("val_loss", val_loss, np.mean)
+        # xm.mesh_reduce("val_loss", val_loss, np.mean)
         
         metrics = {}
         metrics["val_loss"] = val_loss
@@ -295,20 +334,20 @@ class XLATrainer:
         #         metrics["val_sdr_" + source] = sdr_val.item()
 
         val_sdr = torch.mean(sdr).item()
-        xm.mesh_reduce("val_sdr", val_sdr, np.mean)
+        # xm.mesh_reduce("val_sdr", val_sdr, np.mean)
         metrics["val_sdr"] = val_sdr
 
-        if xm.is_master_ordinal():
-            # Save best model
-            if metrics['val_loss'] < self.best_metric:  # todo if sdr then '>'
-                xm.master_print("Save best model with")
-                self.best_metric = metrics['val_sdr']
-                self._save_checkpoint('best_model.pt')
-    
-            self._save_checkpoint('latest_model.pt')
-            return metrics
-        else :
-            return None
+        # if xm.is_master_ordinal():
+        #     # Save best model
+        #     if metrics['val_loss'] < self.best_metric:  # todo if sdr then '>'
+        #         xm.master_print("Save best model with")
+        #         self.best_metric = metrics['val_sdr']
+        #         self._save_checkpoint('best_model.pt')
+        #
+        #     self._save_checkpoint('latest_model.pt')
+        #     return metrics
+        # else :
+        #     return None
 
     def _load_checkpoint(self, filename):
         """Load model checkpoint"""
