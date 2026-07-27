@@ -301,6 +301,7 @@ class XLATrainer:
 
         self.model.eval()
         val_loss = 0.0
+        val_sdr = 0.0
         # sdr = torch.zeros(len(self.target_sources), dtype=torch.float32, device=self.device)
 
         cnt  =  0
@@ -318,24 +319,19 @@ class XLATrainer:
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss= self.loss_fn(outputs, y)
                 
+                sdr = calculate_sdr(outputs, y.detach)
+                val_sdr += torch.mean(sdr).item() # todo sdr per stem
                 val_loss += loss.item()
-                # sdr += calculate_sdr(outputs.detach(), y.detach())
                 cnt += 1
 
         val_loss = val_loss / cnt
-        # sdr = sdr / cnt
-        val_loss = val_loss
-        xm.mesh_reduce("val_loss", val_loss, np.mean)
-        
+        val_sdr = val_sdr / cnt
+        val_loss = xm.mesh_reduce("val_loss", val_loss, np.mean)
+        val_sdr = xm.mesh_reduce("val_sdr", val_sdr, np.mean)
+
         metrics = {}
         metrics["val_loss"] = val_loss
-        # if len(self.target_sources) > 1: todo
-        #     for sdr_val, source in zip(sdr, self.target_sources):
-        #         metrics["val_sdr_" + source] = sdr_val.item()
-
-        # val_sdr = torch.mean(sdr).item()
-        # xm.mesh_reduce("val_sdr", val_sdr, np.mean)
-        # metrics["val_sdr"] = val_sdr
+        metrics["val_sdr"] = val_sdr
 
         if xm.is_master_ordinal():
             # Save best model
