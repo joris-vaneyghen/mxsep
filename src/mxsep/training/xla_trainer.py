@@ -300,8 +300,8 @@ class XLATrainer:
             return {}
 
         self.model.eval()
-        val_loss = torch.zeros(1, dtype=torch.float32, device=self.device)
-        sdr = torch.zeros(len(self.target_sources), dtype=torch.float32, device=self.device)
+        val_loss = 0.0
+        # sdr = torch.zeros(len(self.target_sources), dtype=torch.float32, device=self.device)
 
         cnt  =  0
 
@@ -318,12 +318,12 @@ class XLATrainer:
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss= self.loss_fn(outputs, y)
                 
-                val_loss += loss.detach()
-                sdr += calculate_sdr(outputs.detach(), y.detach())
+                val_loss += loss.item()
+                # sdr += calculate_sdr(outputs.detach(), y.detach())
                 cnt += 1
 
         val_loss = val_loss / cnt
-        sdr = sdr / cnt
+        # sdr = sdr / cnt
         val_loss = val_loss.item()
         # xm.mesh_reduce("val_loss", val_loss, np.mean)
         
@@ -333,21 +333,21 @@ class XLATrainer:
         #     for sdr_val, source in zip(sdr, self.target_sources):
         #         metrics["val_sdr_" + source] = sdr_val.item()
 
-        val_sdr = torch.mean(sdr).item()
+        # val_sdr = torch.mean(sdr).item()
         # xm.mesh_reduce("val_sdr", val_sdr, np.mean)
-        metrics["val_sdr"] = val_sdr
+        # metrics["val_sdr"] = val_sdr
 
-        # if xm.is_master_ordinal():
-        #     # Save best model
-        #     if metrics['val_loss'] < self.best_metric:  # todo if sdr then '>'
-        #         xm.master_print("Save best model with")
-        #         self.best_metric = metrics['val_sdr']
-        #         self._save_checkpoint('best_model.pt')
-        #
-        #     self._save_checkpoint('latest_model.pt')
-        #     return metrics
-        # else :
-        #     return None
+        if xm.is_master_ordinal():
+            # Save best model
+            if metrics['val_loss'] < self.best_metric:  # todo if sdr then '>'
+                xm.master_print("Save best model with")
+                # self.best_metric = metrics['val_loss']
+                # self._save_checkpoint('best_model.pt')
+
+            # self._save_checkpoint('latest_model.pt')
+            return metrics
+        else :
+            return None
 
     def _load_checkpoint(self, filename):
         """Load model checkpoint"""
