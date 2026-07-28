@@ -319,7 +319,7 @@ class XLATrainer:
                     outputs = self.model(x, spectrogram_mode=self.spectrogram_mode)
                     loss= self.loss_fn(outputs, y)
                 
-                sdr = calculate_sdr(outputs, y.detach)
+                sdr = calculate_sdr(outputs, y)
                 val_sdr += torch.mean(sdr).item() # todo sdr per stem
                 val_loss += loss.item()
                 cnt += 1
@@ -327,7 +327,7 @@ class XLATrainer:
         val_loss = val_loss / cnt
         val_sdr = val_sdr / cnt
         val_loss = xm.mesh_reduce("val_loss", val_loss, np.mean)
-        # val_sdr = xm.mesh_reduce("val_sdr", val_sdr, np.mean)
+        val_sdr = xm.mesh_reduce("val_sdr", val_sdr, np.mean)
 
         metrics = {}
         metrics["val_loss"] = val_loss
