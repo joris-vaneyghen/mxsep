@@ -327,7 +327,7 @@ class XLATrainer:
         val_loss = val_loss / cnt
         val_sdr = val_sdr / cnt
         val_loss = xm.mesh_reduce("val_loss", val_loss, np.mean)
-        val_sdr = xm.mesh_reduce("val_sdr", val_sdr, np.mean)
+        # val_sdr = xm.mesh_reduce("val_sdr", val_sdr, np.mean)
 
         metrics = {}
         metrics["val_loss"] = val_loss
