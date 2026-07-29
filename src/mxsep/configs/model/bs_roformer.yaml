@@ -1,0 +1,47 @@
+defaults:
+  - stft: default
+  - encoder/bandsplit@encoder.blocks.band_split: band_split
+  - bottleneck/dttnet@bottleneck.blocks.encoder_layer: transformer_encoder_layer
+  - decoder/bandsplit@decoder.blocks.mask_estimator: mask_estimator
+name: bs_roformer
+dim:
+  f: 1024
+  t: 511
+  d: 384
+  s: ${eval:'len(${model.target_sources})'}
+
+target_sources: ${oc.dict.keys:dataset.target_sources}
+sample_rate: 44100
+segment_length: ${eval:'(${model.dim.t} - 1) * ${model.stft.hop_length}'}
+channels: 2
+mask: cIRM
+
+stft:
+  n_fft: 2048
+  keep_freq_bins: ${model.dim.f}
+
+complex_to_real: as_channels
+
+encoder:
+  blocks:
+    band_split:
+      dim_in: ${eval:${model.channels} * 2}
+      dim_out: ${model.dim.d}
+
+bottleneck:
+  dual_path: True
+  dual_path_times: 6
+
+  blocks:
+    encoder_layer:
+      hidden_size: ${model.dim.d}
+      intermediate_size: ${eval:${model.dim.d} * 3}
+      num_attention_heads: 8
+      num_key_value_heads: 8
+      max_seq_len: ${model.dim.t}
+
+decoder:
+  blocks:
+    mask_estimator:
+      dim_in: ${model.dim.d}
+      dim_out: ${eval:${model.channels} * ${model.dim.s} * 2}

@@ -1,5 +1,5 @@
 n_fft: 2048
 win_length: ${model.stft.n_fft}
-hop_length: $eval{${model.stft.win_length} * 0.25}
+hop_length: ${eval:${model.stft.win_length} // 4}
 window: hann
 normalized: false

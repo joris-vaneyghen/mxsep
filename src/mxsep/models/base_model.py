@@ -3,6 +3,7 @@ from typing import Tuple, List
 import hydra
 import torch
 from einops import einops
+from inference_sdk import config
 from omegaconf import OmegaConf
 from torch import nn, Tensor
 
@@ -97,6 +98,8 @@ class MusicSourceSeparationModel(nn.Module):
 
         if self.complex_to_real == 'as_channels':
             x = self.channels_as_complex(x)
+            if self.mask == 'cIRM':
+                x = x * z_in.unsqueeze(1)
         elif self.complex_to_real == 'as_magnitude':
             x = self.reconstruct_phase(x, z_in) #todo
         else:

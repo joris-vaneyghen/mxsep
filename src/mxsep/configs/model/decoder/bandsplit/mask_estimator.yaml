@@ -1,0 +1,16 @@
+_target_: mxsep.models.modules.bandsplit.MaskEstimator
+nb_bands_per_split:
+  - 24
+  - 12
+  - 8
+  - 8
+  - 8
+  - 2
+freq_bins_per_band_per_split:
+  - 2
+  - 4
+  - 12
+  - 24
+  - 48
+  - 128
+mlp_expansion_factor: 4

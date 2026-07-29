@@ -142,7 +142,7 @@ class GroupQueryAttention(nn.Module):
 
         self.pos_embedding = "alibi"
         if self.pos_embedding == 'alibi':
-            linear_bias = get_linear_bias(n_heads=self.num_heads, ctx_size=256)  # todo share overlayer (~freqs_cis)
+            linear_bias = get_linear_bias(n_heads=self.num_heads, ctx_size=512)  # todo share overlayer (~freqs_cis)
             self.register_buffer("linear_bias", linear_bias)
             
 
