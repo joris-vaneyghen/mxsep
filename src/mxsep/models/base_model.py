@@ -3,7 +3,6 @@ from typing import Tuple, List
 import hydra
 import torch
 from einops import einops
-from inference_sdk import config
 from omegaconf import OmegaConf
 from torch import nn, Tensor
 
