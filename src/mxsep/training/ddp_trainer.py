@@ -224,26 +224,16 @@ class DDPTrainer:
             # Backward pass
             if self.use_amp and self.device.type == 'cuda':
                 self.scaler.scale(loss).backward()
-
-                # Gradient clipping (see https://docs.pytorch.org/docs/main/notes/amp_examples.html#gradient-clipping)
-                if self.gradient_clip is not None:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.model.parameters(),
-                        self.gradient_clip
-                    )
-
             else:
                 loss.backward()
 
-                # Gradient clipping
-                if self.gradient_clip is not None:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.model.parameters(),
-                        self.gradient_clip
-                    )
-
             if (batch_idx +1) % self.accumulation_steps == 0 or batch_idx + 1 == len(self.train_loader):
+                # Gradient clipping (see https://docs.pytorch.org/docs/main/notes/amp_examples.html#gradient-clipping)
+                if self.use_amp and self.device.type == "cuda":
+                    self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.gradient_clip
+                )
                 if self.use_amp and self.device.type == 'cuda':
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
