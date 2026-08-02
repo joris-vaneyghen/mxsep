@@ -149,7 +149,8 @@ class Monitor:
         }
 
         # Log to wandb if enabled
-        if self.use_wandb:
+        batch_idx = data["batch_idx"]
+        if self.use_wandb and batch_idx % self.log_interval == 0:
             wandb.log(log_dict, step=self.global_step)
 
         self.log_data(data)
