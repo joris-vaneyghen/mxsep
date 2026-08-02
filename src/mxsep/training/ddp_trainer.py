@@ -46,6 +46,7 @@ class DDPTrainer:
         self.epochs = cfg.training.epochs
         self.use_amp = cfg.training.use_amp
         self.gradient_clip = cfg.training.gradient_clip
+        self.accumulation_steps = cfg.training.accumulation_steps
         self.seed = cfg.training.seed
         self.deterministic = cfg.training.deterministic
         self.target_sources = cfg.model.target_sources
@@ -206,8 +207,6 @@ class DDPTrainer:
 
             x = x.to(self.device)
 
-            self.optimizer.zero_grad()
-
             # Forward pass with mixed precision
             with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
                 pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
@@ -219,6 +218,9 @@ class DDPTrainer:
 
                 assert pred.shape == y.shape
                 loss = self.loss_fn(pred, y)
+                if self.accumulation_steps > 1:
+                    loss = loss / self.accumulation_steps
+
             # Backward pass
             if self.use_amp and self.device.type == 'cuda':
                 self.scaler.scale(loss).backward()
@@ -231,8 +233,6 @@ class DDPTrainer:
                         self.gradient_clip
                     )
 
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
             else:
                 loss.backward()
 
@@ -243,7 +243,14 @@ class DDPTrainer:
                         self.gradient_clip
                     )
 
-                self.optimizer.step()
+            if (batch_idx +1) % self.accumulation_steps == 0 or batch_idx + 1 == len(self.train_loader):
+                if self.use_amp and self.device.type == 'cuda':
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.optimizer.step()
+
+                self.optimizer.zero_grad()
 
             # Update scheduler
             if self.lr_scheduler is not None:
@@ -270,7 +277,7 @@ class DDPTrainer:
                     "batch_idx": batch_idx,
                     "epoch": self.epoch,
                     "loss": batch_loss,
-                    "loss_avg": epoch_loss / steps,
+                    "loss_avg": epoch_loss * self.accumulation_steps / steps,
                     "lr": self.optimizer.param_groups[0][
                         "lr"
                     ],  # or self.optimizer.defaults['lr'],
@@ -279,7 +286,7 @@ class DDPTrainer:
 
         if self.rank == 0:
             # Calculate epoch averages
-            avg_loss = epoch_loss / steps
+            avg_loss = epoch_loss * self.accumulation_steps / steps
             return {'avg_loss': avg_loss}
         else :
             return None

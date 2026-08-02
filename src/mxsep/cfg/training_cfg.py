@@ -313,6 +313,7 @@ class TrainingConfig:
     epochs: int = 100
     use_amp: bool = True
     gradient_clip: Optional[float] = None
+    accumulation_steps: int = 1
     batch_size: int = 4
     checkpoint_interval: int = 1
     checkpoint_dir: str = './checkpoints'

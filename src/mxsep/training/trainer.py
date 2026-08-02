@@ -34,7 +34,7 @@ class Trainer:
         else:
             self.device = torch.device('cpu')
 
-        
+
         if cfg.training.max_runtime:
             self.start_time = time.time()
             self.last_run = -1
@@ -47,6 +47,7 @@ class Trainer:
         self.epochs = cfg.training.epochs
         self.use_amp = cfg.training.use_amp
         self.gradient_clip = cfg.training.gradient_clip
+        self.accumulation_steps = cfg.training.accumulation_steps
         self.seed = cfg.training.seed
         self.deterministic = cfg.training.deterministic
         self.target_sources = cfg.model.target_sources
@@ -73,7 +74,7 @@ class Trainer:
 
         if self.spectrogram_mode:
             self.istft = ISTFTModule(cfg.model.stft)
-        
+
         if cfg.dataset.validation:
             if cfg.dataset.validation.predefined_jsonl_path:
 
@@ -126,7 +127,7 @@ class Trainer:
 
         self.model.apply(init_weights)
         self.model.to(self.device)
-        
+
         self.optimizer = hydra.utils.instantiate(cfg.training.optimizer, _partial_=True)(params=self.model.parameters())
         if cfg.training.lr_scheduler:
             self.lr_scheduler = hydra.utils.instantiate(cfg.training.lr_scheduler, _partial_=True)(
@@ -144,13 +145,12 @@ class Trainer:
             self.epoch += 1
 
         self.loss_fn = hydra.utils.instantiate(cfg.training.loss)
-        
+
         self.monitor = Monitor(cfg)
         self.monitor.global_step = self.global_step
 
         self.monitor.watch(self.model, self.loss_fn)
 
-        
 
 
     def init_randomizer(self):
@@ -181,7 +181,7 @@ class Trainer:
         self.train_dataset.init_epoch(self.epoch)  # Load new mixes for this epoch
         self.model.train()
         epoch_loss = 0.0
-        epoch_metrics = {}
+        steps = 0
         for batch_idx, batch in enumerate(self.monitor.progress_bar(self.train_loader, desc="Training")):
             # Move to device
             if self.spectrogram_mode:
@@ -191,8 +191,6 @@ class Trainer:
                 y = y.to(self.device)
 
             x = x.to(self.device)
-
-            self.optimizer.zero_grad()
 
             # Forward pass with mixed precision
             with autocast(enabled=self.use_amp, device_type=self.device.type, dtype=torch.float16):
@@ -205,6 +203,9 @@ class Trainer:
 
                 assert pred.shape == y.shape
                 loss = self.loss_fn(pred, y)
+                if self.accumulation_steps > 1:
+                    loss = loss / self.accumulation_steps
+
             # Backward pass
 
             if self.use_amp and self.device.type == 'cuda':
@@ -218,8 +219,6 @@ class Trainer:
                         self.gradient_clip
                     )
 
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
             else:
                 loss.backward()
 
@@ -230,7 +229,14 @@ class Trainer:
                         self.gradient_clip
                     )
 
-                self.optimizer.step()
+            if (batch_idx +1) % self.accumulation_steps == 0 or batch_idx + 1 == len(self.train_loader):
+                if self.use_amp and self.device.type == 'cuda':
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.optimizer.step()
+
+                self.optimizer.zero_grad()
 
             # Update scheduler
             if self.lr_scheduler is not None:
@@ -258,23 +264,23 @@ class Trainer:
                 "batch_idx": batch_idx,
                 "epoch": self.epoch,
                 "loss": batch_loss,
-                "loss_avg": epoch_loss / (batch_idx + 1),
+                "loss_avg": epoch_loss * self.accumulation_steps / (batch_idx + 1),
                 "lr": self.optimizer.param_groups[0]['lr'], # or self.optimizer.defaults['lr'],
             }
 
             self.monitor.log_step( metrics, self.epoch, batch_idx)
 
-            
-            # # Save checkpoint
-            # if self.global_step % self.config.save_interval == 0:
-            #     self._save_checkpoint()
 
-            # Debug memory
-            # if self.memory_debugger:
-            #     self.memory_debugger.snapshot(self.global_step)
+                # # Save checkpoint
+                # if self.global_step % self.config.save_interval == 0:
+                #     self._save_checkpoint()
+
+                # Debug memory
+                # if self.memory_debugger:
+                #     self.memory_debugger.snapshot(self.global_step)
 
         # Calculate epoch averages
-        avg_loss = epoch_loss / len(self.train_loader)
+        avg_loss = epoch_loss * self.accumulation_steps / len(self.train_loader)
         return {'avg_loss': avg_loss}
 
     def validate(self) -> Dict[str, float]:
@@ -310,7 +316,7 @@ class Trainer:
                     print(f"Warning: NaN/Inf loss detected for validation")
 
                 val_loss = loss.item()
-                
+
                 metrics = self._compute_metrics(outputs, y)
                 metrics = {f'val_{k}':v for k, v in metrics.items()}
                 metrics['val_loss'] = val_loss
@@ -479,7 +485,7 @@ class Trainer:
                 left =  self.max_runtime - total_time
                 if left < self.last_run:
                     break
-                
+
 
 
 
