@@ -152,6 +152,7 @@ class GroupQueryAttention(nn.Module):
             self.num_heads * self.head_dim, self.hidden_size, bias=False
         )
         if self.use_flash_attention:
+            #todo check if using xla
             self.flash_attention_impl = apply_xla_flash_attention
         else:
             self.flash_attention_impl = None
