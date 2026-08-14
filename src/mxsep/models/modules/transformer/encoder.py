@@ -11,6 +11,18 @@ import torch.nn.functional as F
 from torch import nn
 
 
+def apply_xla_flash_attention(query_states, key_states, value_states):
+  from torch_xla.experimental.custom_kernel import flash_attention
+
+  # q, k, v should all have the shape [B, n_head, S, head_dim]
+  head_dim = query_states.size()[-1]
+  query_states = query_states / math.sqrt(head_dim)
+  # Our simplified version of decoder only model does not use any mask.
+  attn_output = flash_attention(
+      query_states, key_states, value_states, causal=False)
+  return attn_output
+
+
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     """
     This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
@@ -117,6 +129,7 @@ class GroupQueryAttention(nn.Module):
         num_attention_heads: int = 8,
         num_key_value_heads: int = 4,
         use_flash_attention=False,
+        pos_embedding:str='rope',
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -138,9 +151,12 @@ class GroupQueryAttention(nn.Module):
         self.o_proj = nn.Linear(
             self.num_heads * self.head_dim, self.hidden_size, bias=False
         )
-        self.flash_attention_impl = None
+        if self.use_flash_attention:
+            self.flash_attention_impl = apply_xla_flash_attention
+        else:
+            self.flash_attention_impl = None
 
-        self.pos_embedding = "alibi"
+        self.pos_embedding = pos_embedding
         if self.pos_embedding == 'alibi':
             linear_bias = get_linear_bias(n_heads=self.num_heads, ctx_size=512)  # todo share overlayer (~freqs_cis)
             self.register_buffer("linear_bias", linear_bias)
@@ -262,6 +278,7 @@ class EncoderLayer(nn.Module):
         max_seq_len=2048,
         rope_theta: float = 10000.0,
         use_scaled_rope: bool = False,
+        pos_embedding: str = 'rope',
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -270,6 +287,7 @@ class EncoderLayer(nn.Module):
             num_attention_heads=num_attention_heads,
             num_key_value_heads=num_key_value_heads,
             use_flash_attention=use_flash_attention,
+            pos_embedding=pos_embedding,
         )
         self.mlp = MLP(hidden_size=hidden_size, intermediate_size=intermediate_size)
         self.input_layernorm = RMSNorm(hidden_size)
