@@ -15,8 +15,6 @@ import torch_xla.distributed.parallel_loader as pl
 from torch_xla.amp import autocast
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
-from torch.func import functional_call
-from torch_xla.experimental.assume_pure import assume_pure
 
 from mxsep.cfg import Config
 from mxsep.data.dataset import PredefinedMixDataset
@@ -224,21 +222,6 @@ class XLATrainer:
         epoch_loss = 0.0
         steps = 0
         epoch_metrics = {}
-
-        # Convert module's forward pass into a pure function
-        pure_forward = lambda params, buffers, x, spectrogram_mode: functional_call(
-            self.model,
-            (params, buffers),
-            (
-                x,
-                spectrogram_mode,
-            ),
-        )
-        # Wrap the pure function with @assume_pure
-        cached_forward = assume_pure(pure_forward)
-        params = dict(self.model.named_parameters())
-        buffers = dict(self.model.named_buffers())
-
         for batch_idx, batch in enumerate(self.train_loader):
             # Move to device
             if self.spectrogram_mode:
@@ -250,8 +233,7 @@ class XLATrainer:
 
             # Forward pass with mixed precision
             with autocast(self.device):
-                # pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
-                pred = cached_forward(params, buffers, x, self.spectrogram_mode)
+                pred = self.model(x, spectrogram_mode=self.spectrogram_mode)
                 loss = self.loss_fn(pred, y)
 
                 # if self.spectrogram_mode:
