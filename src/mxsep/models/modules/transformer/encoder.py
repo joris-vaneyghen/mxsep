@@ -15,9 +15,6 @@ def apply_xla_flash_attention(query_states, key_states, value_states):
   from torch_xla.experimental.custom_kernel import flash_attention
 
   # q, k, v should all have the shape [B, n_head, S, head_dim]
-  head_dim = query_states.size()[-1]
-  query_states = query_states / math.sqrt(head_dim)
-  # Our simplified version of decoder only model does not use any mask.
   attn_output = flash_attention(
       query_states, key_states, value_states, causal=False)
   return attn_output
