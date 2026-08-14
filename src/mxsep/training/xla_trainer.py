@@ -222,6 +222,7 @@ class XLATrainer:
         epoch_loss = 0.0
         steps = 0
         epoch_metrics = {}
+
         for batch_idx, batch in enumerate(self.train_loader):
             # Move to device
             if self.spectrogram_mode:
