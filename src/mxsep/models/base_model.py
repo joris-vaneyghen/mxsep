@@ -177,13 +177,30 @@ class DualPathBottleneck(nn.Module):
         self.dual_path_first = config.dual_path_first
         self.dual_path_times = config.dual_path_times
         self.paths = nn.ModuleList()
-        for i in range(self.dual_path_times * 2):
-            path = nn.ModuleDict()
-            for block_name, cfg in config.blocks.items():
-                block = hydra.utils.instantiate(cfg)
-                path[block_name] = block
+        if 'time' in config.blocks and 'freq' in  config.blocks:
+            for i in range(self.dual_path_times):
+                time_block = hydra.utils.instantiate(config.blocks['time'])
+                time_path = nn.ModuleDict()
+                time_path['time'] = time_block
+                
+                freq_block = hydra.utils.instantiate(config.blocks['freq'])
+                freq_path = nn.ModuleDict()
+                freq_path['freq'] = freq_block
+                if self.dual_path_first == 'time':                        
+                    self.paths.append(time_path)
+                    self.paths.append(freq_path)
+                else:
+                    self.paths.append(freq_path)
+                    self.paths.append(time_path)
 
-            self.paths.append(path)
+        else:
+            for i in range(self.dual_path_times * 2):
+                path = nn.ModuleDict()
+                for block_name, cfg in config.blocks.items():
+                    block = hydra.utils.instantiate(cfg)
+                    path[block_name] = block
+    
+                self.paths.append(path)
 
     def forward(self, x: Tensor) -> Tensor:
         batch = x.shape[0]
